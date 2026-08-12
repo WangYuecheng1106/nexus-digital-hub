@@ -71,7 +71,7 @@ export default function AI({ user, navigate }) {
               <option key={p.id} value={p.id}>{p.name}{p.isDefault ? ' · 默认' : ''}</option>
             ))}
           </select>
-          <button type="button" className="btn-default" style={{ fontSize: 12 }} onClick={() => navigate?.('settings')}>配置模型</button>
+          <button type="button" className="btn-default" style={{ fontSize: 12 }} onClick={() => navigate?.('settings')}>个人设置</button>
         </div>
       </div>
       <div className="scroll-y" style={{ flex: 1, padding: 16 }}>

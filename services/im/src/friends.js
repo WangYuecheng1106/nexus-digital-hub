@@ -69,3 +69,94 @@ export function areFriends(userA, userB) {
   const [a, b] = pair(userA, userB);
   return !!db.get('SELECT 1 FROM friendships WHERE user_a = ? AND user_b = ?', a, b);
 }
+
+/** 从通讯录服务按姓名/用户名/手机/邮箱模糊搜索可加好友的人 */
+export async function searchPeople(query, selfId, authHeader = '') {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q || q.length < 1) return [];
+  let employees = [];
+  try {
+    const r = await fetch('http://127.0.0.1:8092/employees?limit=200', {
+      headers: { Authorization: authHeader },
+    });
+    if (r.ok) {
+      const data = await r.json();
+      employees = Array.isArray(data) ? data : (data.items || []);
+    }
+  } catch { /* */ }
+  // 回退：auth 用户列表（若有权限）
+  if (!employees.length) {
+    try {
+      const r = await fetch('http://127.0.0.1:8081/users', {
+        headers: { Authorization: authHeader },
+      });
+      if (r.ok) {
+        const data = await r.json();
+        employees = (Array.isArray(data) ? data : []).map((u) => ({
+          id: u.id,
+          user_id: u.id,
+          name: u.display_name,
+          username: u.username,
+          email: u.email,
+          phone: u.phone,
+          dept_name: u.dept_id,
+          position: u.position,
+        }));
+      }
+    } catch { /* */ }
+  }
+
+  return employees
+    .map((e) => {
+      const id = e.user_id || e.id;
+      return {
+        id,
+        name: e.name || e.display_name || e.username || id,
+        username: e.username || '',
+        email: e.email || '',
+        phone: e.phone || '',
+        dept: e.dept_name || e.dept_id || '',
+        position: e.position || '',
+        isFriend: areFriends(selfId, id),
+        isSelf: id === selfId,
+      };
+    })
+    .filter((e) => !e.isSelf)
+    .filter((e) => {
+      const hay = `${e.name} ${e.username} ${e.email} ${e.phone} ${e.id}`.toLowerCase();
+      return hay.includes(q);
+    })
+    .slice(0, 30);
+}
+
+/** 批量补全好友展示信息 */
+export async function enrichFriendProfiles(friendRows, authHeader = '') {
+  if (!friendRows?.length) return [];
+  const ids = friendRows.map((f) => f.friend_id);
+  let map = {};
+  try {
+    const r = await fetch(`http://127.0.0.1:8081/users/batch?ids=${ids.join(',')}`, {
+      headers: { Authorization: authHeader },
+    });
+    if (r.ok) {
+      const users = await r.json();
+      for (const u of users) {
+        map[u.id] = {
+          name: u.display_name || u.username,
+          username: u.username,
+          email: u.email,
+          position: u.position,
+          dept: u.dept_id,
+        };
+      }
+    }
+  } catch { /* */ }
+  return friendRows.map((f) => ({
+    ...f,
+    name: map[f.friend_id]?.name || f.friend_id,
+    username: map[f.friend_id]?.username || '',
+    email: map[f.friend_id]?.email || '',
+    position: map[f.friend_id]?.position || '',
+    dept: map[f.friend_id]?.dept || '',
+  }));
+}

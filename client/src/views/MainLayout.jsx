@@ -5,40 +5,34 @@ const Mail = lazy(() => import('./Mail.jsx'));
 const Workbench = lazy(() => import('./Workbench.jsx'));
 const IM = lazy(() => import('./IM.jsx'));
 const Meeting = lazy(() => import('./Meeting.jsx'));
-const KnowledgeGraph = lazy(() => import('./KnowledgeGraph.jsx'));
 const Document = lazy(() => import('./Document.jsx'));
 const Workflow = lazy(() => import('./Workflow.jsx'));
 const Calendar = lazy(() => import('./Calendar.jsx'));
 const Drive = lazy(() => import('./Drive.jsx'));
-const Project = lazy(() => import('./Project.jsx'));
 const Attendance = lazy(() => import('./Attendance.jsx'));
 const Contacts = lazy(() => import('./Contacts.jsx'));
 const Forum = lazy(() => import('./Forum.jsx'));
-const Analytics = lazy(() => import('./Analytics.jsx'));
 const AI = lazy(() => import('./AI.jsx'));
 const Settings = lazy(() => import('./Settings.jsx'));
 
-// 统一端：All-in-One 入口，所有用户均使用完整工作台（钉钉 / WeLink / Viva Engage 模式）
+// 仅员工端：对标 WhatsApp / 钉钉员工日常入口（去掉管理分析、关系图谱管理等）
 const NAV = [
-  { key: 'workbench', label: '工作台', Icon: Icons.home },
   { key: 'im', label: '消息', Icon: Icons.chat, badge: true },
+  { key: 'contacts', label: '通讯录', Icon: Icons.user },
+  { key: 'workbench', label: '工作台', Icon: Icons.home },
   { key: 'mail', label: '邮箱', Icon: Icons.mail },
   { key: 'meeting', label: '会议', Icon: Icons.video },
-  { key: 'contacts', label: '通讯录', Icon: Icons.user },
-  { key: 'document', label: '文档', Icon: Icons.doc },
-  { key: 'drive', label: '云盘', Icon: Icons.folder },
   { key: 'calendar', label: '日程', Icon: Icons.calendar },
   { key: 'workflow', label: '审批', Icon: Icons.check, badge: true },
-  { key: 'project', label: '项目', Icon: Icons.board },
+  { key: 'document', label: '文档', Icon: Icons.doc },
+  { key: 'drive', label: '云盘', Icon: Icons.folder },
   { key: 'attendance', label: '考勤', Icon: Icons.clock },
   { key: 'forum', label: '论坛', Icon: Icons.globe },
-  { key: 'knowledge', label: '图谱', Icon: Icons.graph },
-  { key: 'analytics', label: '分析', Icon: Icons.chart },
   { key: 'ai', label: 'AI', Icon: Icons.spark },
 ];
 
 export default function MainLayout({ user, onLogout, onUserUpdate }) {
-  const [active, setActive] = useState('workbench');
+  const [active, setActive] = useState('im');
   const [theme, setTheme] = useState(localStorage.getItem('nexus_theme') || 'dark');
   const [brandColor, setBrandColor] = useState(localStorage.getItem('nexus_brand') || '#4d8cff');
   const [unreadCount, setUnreadCount] = useState(0);
@@ -49,10 +43,21 @@ export default function MainLayout({ user, onLogout, onUserUpdate }) {
     localStorage.setItem('nexus_theme', theme);
     document.documentElement.style.setProperty('--accent', brandColor);
     localStorage.setItem('nexus_brand', brandColor);
+    // 清理旧的管理端/员工端切换残留
+    localStorage.removeItem('nexus_client_mode');
   }, [theme, brandColor]);
 
   useEffect(() => {
-    const handler = () => setActive(window.location.hash.slice(2) || 'workbench');
+    const handler = () => {
+      const key = window.location.hash.slice(2) || 'im';
+      // 已删除的管理端模块回退到消息
+      if (['knowledge', 'analytics', 'project', 'admin'].includes(key)) {
+        window.location.hash = '#/im';
+        setActive('im');
+        return;
+      }
+      setActive(key);
+    };
     handler();
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
@@ -67,6 +72,7 @@ export default function MainLayout({ user, onLogout, onUserUpdate }) {
     window.__nexus = {
       user,
       activeModule: active,
+      clientMode: 'employee',
       getUnreadCount: () => unreadCount,
       getPendingApprovals: () => pendingApprovals,
       navigate,
@@ -78,23 +84,20 @@ export default function MainLayout({ user, onLogout, onUserUpdate }) {
   const renderView = () => {
     const props = { user, onUserUpdate, navigate };
     switch (active) {
-      case 'workbench': return <Workbench {...props} />;
       case 'im': return <IM {...props} setUnreadCount={setUnreadCount} />;
+      case 'contacts': return <Contacts {...props} />;
+      case 'workbench': return <Workbench {...props} />;
       case 'mail': return <Mail {...props} />;
       case 'meeting': return <Meeting {...props} />;
-      case 'contacts': return <Contacts {...props} />;
-      case 'document': return <Document {...props} />;
-      case 'drive': return <Drive {...props} />;
       case 'calendar': return <Calendar {...props} />;
       case 'workflow': return <Workflow {...props} setPendingApprovals={setPendingApprovals} />;
-      case 'project': return <Project {...props} />;
+      case 'document': return <Document {...props} />;
+      case 'drive': return <Drive {...props} />;
       case 'attendance': return <Attendance {...props} />;
       case 'forum': return <Forum {...props} />;
-      case 'knowledge': return <KnowledgeGraph {...props} />;
-      case 'analytics': return <Analytics {...props} />;
       case 'ai': return <AI {...props} />;
       case 'settings': return <Settings {...props} onLogout={onLogout} theme={theme} setTheme={setTheme} brandColor={brandColor} setBrandColor={setBrandColor} />;
-      default: return <Workbench {...props} />;
+      default: return <IM {...props} setUnreadCount={setUnreadCount} />;
     }
   };
 
@@ -127,7 +130,7 @@ export default function MainLayout({ user, onLogout, onUserUpdate }) {
         <header className="nx-topbar">
           <div className="font-semi" style={{ fontSize: 13 }}>{current.label}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="text-xs">{user.display_name} · {(user.roleNames || user.roles || []).join(' · ')}</span>
+            <span className="text-xs">{user.display_name}{user.position ? ` · ${user.position}` : ''}</span>
             <div className="avatar sm accent">{(user.display_name || '?').charAt(0)}</div>
           </div>
         </header>

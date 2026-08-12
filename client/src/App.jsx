@@ -40,7 +40,8 @@ export default function App() {
 
   if (loading) return <div className="empty" style={{ height: '100vh' }}>加载中…</div>;
   if (!user) {
-    if (showLogin) return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
+    const wantLogin = showLogin || window.location.hash.includes('login');
+    if (wantLogin) return <Login onLogin={handleLogin} onBack={() => { setShowLogin(false); window.location.hash = '#/'; }} />;
     return <Landing onEnter={() => setShowLogin(true)} />;
   }
   return <MainLayout user={user} onLogout={handleLogout} onUserUpdate={setUser} />;

@@ -16,7 +16,11 @@ export default function IM({ user, setUnreadCount }) {
   const [sideTab, setSideTab] = useState('chats'); // chats | friends
   const [friends, setFriends] = useState([]);
   const [friendReqs, setFriendReqs] = useState([]);
-  const [addFriendId, setAddFriendId] = useState('');
+  const [friendQuery, setFriendQuery] = useState('');
+  const [searchHits, setSearchHits] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [greeting, setGreeting] = useState('你好，我想加你为好友');
+  const [friendMsg, setFriendMsg] = useState('');
   const [playingId, setPlayingId] = useState(null);
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
@@ -199,12 +203,12 @@ export default function IM({ user, setUnreadCount }) {
     mediaRef.current = null;
   };
 
-  const startChat = async (memberOverride) => {
+  const startChat = async (memberOverride, nameOverride) => {
     setCreating(true);
     setError('');
     try {
       let memberId = memberOverride;
-      let name = '会话';
+      let name = nameOverride || '会话';
       if (!memberId) {
         let list = peers;
         if (!list.length) {
@@ -231,15 +235,31 @@ export default function IM({ user, setUnreadCount }) {
     }
   };
 
-  const sendFriendReq = async () => {
-    if (!addFriendId.trim()) return;
+  const searchFriends = async (q) => {
+    setFriendQuery(q);
+    if (!q.trim()) { setSearchHits([]); return; }
+    setSearching(true);
+    try {
+      const hits = await api(`/im/friends/search?q=${encodeURIComponent(q.trim())}`);
+      setSearchHits(Array.isArray(hits) ? hits : []);
+    } catch {
+      setSearchHits([]);
+    }
+    setSearching(false);
+  };
+
+  const sendFriendReq = async (toUserId) => {
+    if (!toUserId) return;
     try {
       await api('/im/friends/request', {
         method: 'POST',
-        body: JSON.stringify({ toUserId: addFriendId.trim(), message: '你好，我想加你为好友' }),
+        body: JSON.stringify({ toUserId, message: greeting || '你好，我想加你为好友' }),
       });
-      setAddFriendId('');
+      setFriendMsg('申请已发送');
+      setFriendQuery('');
+      setSearchHits([]);
       loadFriends();
+      setTimeout(() => setFriendMsg(''), 2500);
     } catch (e) {
       setError(e.message || '发送申请失败');
     }
@@ -347,39 +367,79 @@ export default function IM({ user, setUnreadCount }) {
         ) : (
           <div className="scroll-y" style={{ flex: 1, padding: 12 }}>
             <div className="font-semi" style={{ marginBottom: 8, fontSize: 12 }}>添加好友</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-              <input placeholder="对方用户 ID" value={addFriendId} onChange={(e) => setAddFriendId(e.target.value)} style={{ flex: 1 }} />
-              <button type="button" className="btn-primary" onClick={sendFriendReq}>添加</button>
-            </div>
+            <input
+              placeholder="搜索姓名 / 用户名 / 手机 / 邮箱…"
+              value={friendQuery}
+              onChange={(e) => searchFriends(e.target.value)}
+              style={{ width: '100%', marginBottom: 8 }}
+            />
+            <input
+              placeholder="打招呼留言（可选）"
+              value={greeting}
+              onChange={(e) => setGreeting(e.target.value)}
+              style={{ width: '100%', marginBottom: 8, fontSize: 12 }}
+            />
+            {friendMsg && <div className="text-xs" style={{ color: 'var(--success)', marginBottom: 8 }}>{friendMsg}</div>}
+            {searching && <div className="text-xs text-muted" style={{ marginBottom: 8 }}>搜索中…</div>}
+            {searchHits.map((p) => (
+              <div key={p.id} className="list-row" style={{ marginBottom: 4 }}>
+                <div className="avatar">{(p.name || '?').charAt(0)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="font-med" style={{ fontSize: 13 }}>{p.name}</div>
+                  <div className="text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {[p.username, p.dept, p.position].filter(Boolean).join(' · ') || p.id}
+                  </div>
+                </div>
+                {p.isFriend ? (
+                  <button type="button" className="btn-default" style={{ fontSize: 11 }} onClick={() => startChat(p.id, p.name)}>发消息</button>
+                ) : (
+                  <button type="button" className="btn-primary" style={{ fontSize: 11 }} onClick={() => sendFriendReq(p.id)}>加好友</button>
+                )}
+              </div>
+            ))}
+            {friendQuery && !searching && searchHits.length === 0 && (
+              <div className="text-xs text-muted" style={{ marginBottom: 12 }}>未找到匹配的同事</div>
+            )}
+
             {friendReqs.filter((r) => r.status === 'pending').length > 0 && (
               <>
-                <div className="font-semi" style={{ marginBottom: 8, fontSize: 12 }}>待处理申请</div>
+                <div className="font-semi" style={{ margin: '12px 0 8px', fontSize: 12 }}>
+                  新的好友申请 ({friendReqs.filter((r) => r.status === 'pending').length})
+                </div>
                 {friendReqs.filter((r) => r.status === 'pending').map((r) => (
                   <div key={r.id} className="card" style={{ marginBottom: 8, padding: 10 }}>
-                    <div className="text-xs">{r.message}</div>
-                    <div className="text-muted" style={{ fontSize: 11, margin: '4px 0 8px' }}>来自 {r.from_id}</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                      <div className="avatar sm">{String(r.from_id || '?').charAt(0)}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="font-med" style={{ fontSize: 12 }}>{r.from_id}</div>
+                        <div className="text-xs text-muted">{r.message || '请求添加你为好友'}</div>
+                      </div>
+                    </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button type="button" className="btn-primary" style={{ fontSize: 12 }} onClick={() => respondReq(r.id, true)}>接受</button>
-                      <button type="button" className="btn-default" style={{ fontSize: 12 }} onClick={() => respondReq(r.id, false)}>拒绝</button>
+                      <button type="button" className="btn-primary" style={{ fontSize: 12, flex: 1 }} onClick={() => respondReq(r.id, true)}>接受</button>
+                      <button type="button" className="btn-default" style={{ fontSize: 12, flex: 1 }} onClick={() => respondReq(r.id, false)}>拒绝</button>
                     </div>
                   </div>
                 ))}
               </>
             )}
-            <div className="font-semi" style={{ margin: '12px 0 8px', fontSize: 12 }}>我的好友</div>
-            {friends.length === 0 && <div className="empty" style={{ padding: 16 }}><div className="text-xs">暂无好友，从通讯录添加</div></div>}
+
+            <div className="font-semi" style={{ margin: '12px 0 8px', fontSize: 12 }}>我的好友 ({friends.length})</div>
+            {friends.length === 0 && <div className="empty" style={{ padding: 16 }}><div className="text-xs">暂无好友，搜索同事添加</div></div>}
             {friends.map((f) => (
               <button
                 key={f.friend_id}
                 type="button"
                 className="list-row"
                 style={{ width: '100%', border: 'none' }}
-                onClick={() => startChat(f.friend_id)}
+                onClick={() => startChat(f.friend_id, f.name)}
               >
-                <div className="avatar">{String(f.friend_id).charAt(0)}</div>
-                <div style={{ flex: 1, textAlign: 'left' }}>
-                  <div className="font-med" style={{ fontSize: 13 }}>{f.friend_id}</div>
-                  <div className="text-xs">点击发消息</div>
+                <div className="avatar">{String(f.name || f.friend_id).charAt(0)}</div>
+                <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+                  <div className="font-med" style={{ fontSize: 13 }}>{f.name || f.friend_id}</div>
+                  <div className="text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {[f.position, f.dept].filter(Boolean).join(' · ') || '点击发消息'}
+                  </div>
                 </div>
               </button>
             ))}

@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { db, createMessage, deliverMessage, findSingleConversation, getConversationMembers } from './repo.js';
 import {
   sendFriendRequest, respondFriendRequest, listFriends, listFriendRequests, areFriends,
+  searchPeople, enrichFriendProfiles,
 } from './friends.js';
 
 export function setupRoutes(app, hub) {
@@ -30,10 +31,19 @@ export function setupRoutes(app, hub) {
       throw badRequest(e.message);
     }
   }));
-  app.get('/friends', (req, res) => res.json(listFriends(String(req.user.sub))));
+  app.get('/friends', asyncRoute(async (req, res) => {
+    const rows = listFriends(String(req.user.sub));
+    const enriched = await enrichFriendProfiles(rows, req.headers.authorization || '');
+    res.json(enriched);
+  }));
   app.get('/friends/requests', (req, res) => {
     res.json(listFriendRequests(String(req.user.sub), req.query.box === 'sent' ? 'sent' : 'inbox'));
   });
+  app.get('/friends/search', asyncRoute(async (req, res) => {
+    const q = String(req.query.q || '');
+    const people = await searchPeople(q, String(req.user.sub), req.headers.authorization || '');
+    res.json(people);
+  }));
   app.get('/friends/check/:userId', (req, res) => {
     res.json({ friends: areFriends(String(req.user.sub), req.params.userId) });
   });

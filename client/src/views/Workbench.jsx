@@ -10,12 +10,9 @@ const APPS = [
   { key: 'workflow', label: '审批', Icon: Icons.check },
   { key: 'calendar', label: '日程', Icon: Icons.calendar },
   { key: 'drive', label: '云盘', Icon: Icons.folder },
-  { key: 'project', label: '项目', Icon: Icons.board },
   { key: 'attendance', label: '考勤', Icon: Icons.clock },
   { key: 'contacts', label: '通讯录', Icon: Icons.user },
   { key: 'forum', label: '论坛', Icon: Icons.globe },
-  { key: 'knowledge', label: '图谱', Icon: Icons.graph },
-  { key: 'analytics', label: '分析', Icon: Icons.chart },
   { key: 'ai', label: 'AI', Icon: Icons.spark },
 ];
 
@@ -68,7 +65,7 @@ export default function Workbench({ user, navigate }) {
             {greet()}，{user.display_name}
           </div>
           <div className="text-xs">
-            {(user.roles || []).join(' · ')} · {now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {user.position || '员工'} · {now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
         </div>
         <div className="tag">{up}/{services.length || '—'} 服务在线</div>
