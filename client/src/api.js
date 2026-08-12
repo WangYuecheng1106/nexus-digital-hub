@@ -37,7 +37,12 @@ async function refreshIfNeeded() {
 export async function api(path, opts = {}) {
   const headers = { 'content-type': 'application/json', ...opts.headers };
   if (token) headers.authorization = `Bearer ${token}`;
-  let r = await fetch(`${BASE}${path}`, { ...opts, headers });
+  let r;
+  try {
+    r = await fetch(`${BASE}${path}`, { ...opts, headers });
+  } catch {
+    throw { status: 0, error: 'network_error', message: '无法连接后端服务，请先在本机启动：npm run dev' };
+  }
   // 令牌过期时尝试刷新
   if (r.status === 401 && refreshToken && !opts._retried) {
     const ok = await refreshIfNeeded();
@@ -50,8 +55,14 @@ export async function api(path, opts = {}) {
     clearTokens();
     window.location.hash = '#/login';
   }
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw { status: r.status, ...data };
+  const ct = r.headers.get('content-type') || '';
+  const data = ct.includes('application/json') ? await r.json().catch(() => ({})) : {};
+  if (!r.ok) {
+    if (r.status === 404 || r.status === 502 || r.status === 503) {
+      throw { status: r.status, error: 'backend_unavailable', message: '后端服务未就绪，请在本机运行 npm run dev 后再登录' };
+    }
+    throw { status: r.status, ...data, message: data.message || (r.status === 401 ? '用户名或密码错误' : `请求失败 (${r.status})`) };
+  }
   return data;
 }
 

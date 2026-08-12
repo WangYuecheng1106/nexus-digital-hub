@@ -20,7 +20,14 @@ export default function Login({ onLogin, onBack }) {
       setTokens(data.accessToken, data.refreshToken);
       onLogin(data.user);
     } catch (err) {
-      setError(err.message || '用户名或密码错误');
+      const msg = err?.message || '';
+      if (err?.status === 0 || err?.error === 'network_error' || err?.error === 'backend_unavailable') {
+        setError(msg || '后端未启动：请在项目根目录执行 npm run dev，然后打开 http://localhost:5173');
+      } else if (msg.includes('锁定')) {
+        setError(msg);
+      } else {
+        setError(msg || '用户名或密码错误');
+      }
     } finally {
       setLoading(false);
     }

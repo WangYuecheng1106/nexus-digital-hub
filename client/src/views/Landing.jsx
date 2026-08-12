@@ -33,7 +33,8 @@ export default function Landing({ onEnter }) {
             <a href="https://github.com/WangYuecheng1106/nexus-digital-hub" target="_blank" rel="noreferrer" className="btn-default" style={{ padding: '12px 24px', fontSize: 15, textDecoration: 'none' }}>GitHub 源码</a>
           </div>
           <div className="text-xs" style={{ marginTop: 16, color: 'var(--text-muted)' }}>
-            演示账号 admin / Admin@1234 · liuyang / Nexus@1234
+            完整功能请本机启动：<code style={{ background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: 4 }}>npm run dev</code>
+            ，打开 http://localhost:5173 · 演示账号 admin / Admin@1234
           </div>
         </div>
       </section>
