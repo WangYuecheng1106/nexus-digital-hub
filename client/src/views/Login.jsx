@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { api, setTokens } from '../api.js';
 import { Icons } from '../icons.jsx';
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, onBack }) {
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('Admin@1234');
   const [error, setError] = useState('');
@@ -60,6 +60,11 @@ export default function Login({ onLogin }) {
         <button type="submit" className="btn-primary" disabled={loading} style={{ width: '100%', padding: 10 }}>
           {loading ? '登录中…' : '登录'}
         </button>
+        {onBack && (
+          <button type="button" className="btn-ghost" style={{ width: '100%', marginTop: 10, fontSize: 12 }} onClick={onBack}>
+            ← 返回介绍页
+          </button>
+        )}
 
         <div className="text-muted" style={{ marginTop: 16, fontSize: 11, lineHeight: 1.6 }}>
           演示账号 admin / Admin@1234 · liuyang / Nexus@1234

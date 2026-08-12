@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, clearTokens, getToken } from './api.js';
 import Login from './views/Login.jsx';
+import Landing from './views/Landing.jsx';
 import MainLayout from './views/MainLayout.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', localStorage.getItem('nexus_theme') || 'dark');
@@ -33,10 +35,13 @@ export default function App() {
   const handleLogout = () => {
     clearTokens();
     setUser(null);
-    window.location.hash = '#/login';
+    setShowLogin(false);
   };
 
   if (loading) return <div className="empty" style={{ height: '100vh' }}>加载中…</div>;
-  if (!user) return <Login onLogin={handleLogin} />;
+  if (!user) {
+    if (showLogin) return <Login onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
+    return <Landing onEnter={() => setShowLogin(true)} />;
+  }
   return <MainLayout user={user} onLogout={handleLogout} onUserUpdate={setUser} />;
 }
