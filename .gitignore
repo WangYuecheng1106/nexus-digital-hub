@@ -1,0 +1,10 @@
+node_modules
+dist
+*.log
+*.db
+services/*/data
+.env
+.deploy-skill
+screenshots/*.webm
+screenshots/*-chromium
+.DS_Store

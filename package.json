@@ -1,0 +1,49 @@
+{
+  "name": "nexus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Nexus 数字中枢 - 企业协作办公平台 (All-in-One Enterprise Collaboration)",
+  "workspaces": [
+    "shared",
+    "services/*",
+    "client"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:services": "node scripts/dev.js --services-only",
+    "dev:client": "node scripts/dev.js --client-only",
+    "build:client": "npm run build -w @nexus/client",
+    "start:electron": "node scripts/dev.js --electron",
+    "seed": "node scripts/seed.js",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcryptjs": "^3.0.2",
+    "dayjs": "^1.11.13",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.3",
+    "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.8.0",
+    "mime-types": "^2.1.35",
+    "multer": "^2.0.1",
+    "node-cron": "^3.0.3",
+    "pdf-parse": "^1.1.1",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.0",
+    "xlsx": "^0.18.5",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.21",
+    "y-websocket": "^2.1.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

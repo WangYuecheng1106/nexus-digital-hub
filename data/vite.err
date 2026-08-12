@@ -1,0 +1,4 @@
+npm warn invalid config proxy="" set in D:\NEXUS\.npmrc
+npm warn invalid config Must be full url with "http://"
+npm warn invalid config https-proxy="" set in D:\NEXUS\.npmrc
+npm warn invalid config Must be full url with "http://"
