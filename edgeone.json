@@ -1,0 +1,6 @@
+{
+  "name": "nexus",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build -w @nexus/client",
+  "outputDirectory": "client/dist"
+}

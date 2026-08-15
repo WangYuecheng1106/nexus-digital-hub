@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api.js';
 import { Icons } from '../icons.jsx';
+import Modal from '../components/Modal.jsx';
 
 const COLUMNS = ['todo', 'doing', 'testing', 'done', 'closed'];
 const COL_LABELS = { todo: '待办', doing: '进行中', testing: '待测试', done: '已完成', closed: '已关闭' };
@@ -60,9 +61,22 @@ export default function Project({ user }) {
   if (!active) {
     return (
       <div className="scroll-y" style={{ height: '100%', padding: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, alignItems: 'center' }}>
           <span className="font-semi" style={{ fontSize: 15 }}>项目管理</span>
+          <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" className="btn-primary" onClick={createProject}><Icons.plus size={14} /> 新建项目</button>
+          <button type="button" className="btn-default" onClick={async () => {
+            let p = projects[0];
+            if (!p) {
+              try {
+                p = await api('/project/projects', { method: 'POST', body: JSON.stringify({ name: '演示项目', description: 'Nexus 示例', color: '#5b5fc7' }) });
+                setProjects((prev) => [p, ...prev]);
+              } catch (e) { setError(e.message); return; }
+            }
+            await openProject(p);
+            setShowCreate(true);
+          }}>+ 新建任务</button>
+          </div>
         </div>
         {error && <div className="text-error" style={{ marginBottom: 8, fontSize: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
@@ -70,6 +84,7 @@ export default function Project({ user }) {
             <button key={p.id} type="button" className="card" style={{ textAlign: 'left', cursor: 'pointer', borderLeft: `3px solid ${p.color || 'var(--accent)'}` }} onClick={() => openProject(p)}>
               <div className="font-semi">{p.name}</div>
               <div className="text-xs">{p.description}</div>
+              <div className="text-xs" style={{ marginTop: 8 }}>{p.status || '进行中'} · {p.member_count || p.members || '—'} 人</div>
             </button>
           ))}
         </div>
@@ -142,21 +157,16 @@ export default function Project({ user }) {
           {tasks.length === 0 && <div className="empty"><Icons.chart size={28} /><div>暂无任务</div></div>}
         </div>
       )}
-      {showCreate && (
-        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">新建任务</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input placeholder="任务标题" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-              <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
-                <option value="urgent">紧急</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option>
-              </select>
-              <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
-              <button type="button" className="btn-primary" onClick={createTask}>创建</button>
-            </div>
-          </div>
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建任务">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input placeholder="任务标题" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}>
+            <option value="urgent">紧急</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option>
+          </select>
+          <input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+          <button type="button" className="btn-primary" onClick={createTask}>创建</button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

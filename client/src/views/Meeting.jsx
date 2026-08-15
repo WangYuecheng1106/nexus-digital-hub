@@ -15,12 +15,18 @@ export default function Meeting({ user }) {
   const [chat, setChat] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [error, setError] = useState('');
+  const [recent, setRecent] = useState([]);
+  const [notes, setNotes] = useState('');
 
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
   const wsRef = useRef(null);
   const rtcRef = useRef(null);
   const remoteStreamsRef = useRef({});
+
+  useEffect(() => {
+    api('/meeting/meetings').then((d) => setRecent(Array.isArray(d) ? d : (d.items || []))).catch(() => {});
+  }, []);
 
   const createInstant = async () => {
     setError('');
@@ -29,6 +35,16 @@ export default function Meeting({ user }) {
         method: 'POST',
         body: JSON.stringify({ type: 'instant', title: (user.display_name || '用户') + '的会议' }),
       });
+      const start = Date.now();
+      api('/calendar/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: m.title || '即时会议',
+          start_time: start,
+          end_time: start + 3600000,
+          meeting_link: m.meeting_no || m.meetingNo,
+        }),
+      }).catch(() => {});
       await joinMeeting(m.id || m.meeting?.id, m);
     } catch (e) { setError(e.message || '创建会议失败'); }
   };
@@ -155,14 +171,21 @@ export default function Meeting({ user }) {
           <span className="text-xs">{participants.length + 1} 人在会</span>
         </div>
         <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 12, padding: 16, alignContent: 'flex-start', overflow: 'auto' }}>
-          <div style={{ position: 'relative', width: 280, height: 180, background: '#111', borderRadius: 8, overflow: 'hidden', border: '1px solid #2a2a2a' }}>
-            <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
-            <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, background: 'rgba(0,0,0,.65)', padding: '2px 6px', borderRadius: 4 }}>{user.display_name} · 我</div>
+          <div style={{ position: 'relative', width: 280, height: 180, background: '#1a1816', borderRadius: 8, overflow: 'hidden', border: '1px solid #2a2a2a' }}>
+            <video ref={localVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: videoOff ? 'none' : 'block' }} />
+            {videoOff || !localStreamRef.current ? (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="avatar accent" style={{ width: 56, height: 56, fontSize: 20 }}>{(user.display_name || '我').charAt(0)}</div>
+              </div>
+            ) : null}
+            <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, background: 'rgba(0,0,0,.65)', padding: '2px 6px', borderRadius: 4, color: '#fff' }}>{user.display_name} · 我</div>
           </div>
           {participants.map((p) => (
-            <div key={p.userId} style={{ position: 'relative', width: 280, height: 180, background: '#151515', borderRadius: 8, border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
+            <div key={p.userId} style={{ position: 'relative', width: 280, height: 180, background: '#1a1816', borderRadius: 8, border: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
               <video id={'remote-video-' + p.userId} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: remoteStreamsRef.current[p.userId] ? 'block' : 'none' }} />
-              {!remoteStreamsRef.current[p.userId] && <span>{p.name || p.userId}</span>}
+              {!remoteStreamsRef.current[p.userId] && (
+                <div className="avatar" style={{ width: 56, height: 56, fontSize: 18 }}>{(p.name || p.userId || '?').charAt(0)}</div>
+              )}
               <div style={{ position: 'absolute', bottom: 6, left: 6, fontSize: 11, background: 'rgba(0,0,0,.65)', color: '#fff', padding: '2px 6px', borderRadius: 4 }}>{p.name || p.userId}</div>
             </div>
           ))}
@@ -198,17 +221,48 @@ export default function Meeting({ user }) {
   }
 
   return (
-    <div className="scroll-y" style={{ height: '100%', padding: 24, display: 'flex', justifyContent: 'center' }}>
-      <div className="card" style={{ width: 440, textAlign: 'center' }}>
-        <div style={{ color: 'var(--accent)', marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icons.video size={36} /></div>
-        <div style={{ fontSize: 16, fontWeight: 650, marginBottom: 6, letterSpacing: '-0.02em' }}>视频会议</div>
-        <div className="text-xs" style={{ marginBottom: 20 }}>WebRTC 信令 · 屏幕共享 · 会议录制</div>
-        <button type="button" className="btn-primary" onClick={createInstant} style={{ width: '100%', padding: 11, marginBottom: 14 }}>立即发起会议</button>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input placeholder="输入会议号加入…" value={meetingNo} onChange={(e) => setMeetingNo(e.target.value)} style={{ flex: 1 }} />
-          <button type="button" className="btn-default" onClick={joinByNo}>加入</button>
+    <div className="scroll-y" style={{ height: '100%', padding: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 440px) 1fr', gap: 16, maxWidth: 980, margin: '0 auto', alignItems: 'start' }}>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div style={{ color: 'var(--accent)', marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Icons.video size={36} /></div>
+          <div style={{ fontSize: 16, fontWeight: 650, marginBottom: 6, letterSpacing: '-0.02em' }}>视频会议</div>
+          <div className="text-xs" style={{ marginBottom: 20 }}>摄像头预览 · 屏幕共享 · 会中聊天 · 听记草稿</div>
+          <button type="button" className="btn-primary" onClick={createInstant} style={{ width: '100%', padding: 11, marginBottom: 14 }}>立即发起会议</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input placeholder="输入会议号加入…" value={meetingNo} onChange={(e) => setMeetingNo(e.target.value)} style={{ flex: 1 }} />
+            <button type="button" className="btn-default" onClick={joinByNo}>加入</button>
+          </div>
+          {error && <div className="text-error" style={{ marginTop: 12, fontSize: 12 }}>{error}</div>}
         </div>
-        {error && <div className="text-error" style={{ marginTop: 12, fontSize: 12 }}>{error}</div>}
+        <div>
+          <div className="font-semi" style={{ marginBottom: 10 }}>最近会议</div>
+          {recent.slice(0, 6).map((m) => (
+            <button key={m.id} type="button" className="card" style={{ width: '100%', textAlign: 'left', marginBottom: 8, cursor: 'pointer' }} onClick={() => joinMeeting(m.id, m)}>
+              <div className="font-med">{m.title || '会议'}</div>
+              <div className="text-xs">会议号 {m.meeting_no || m.meetingNo || m.id} · {m.status || '可加入'}</div>
+            </button>
+          ))}
+          {recent.length === 0 && <div className="text-xs">还没有会议记录。发起后会出现在这里，并写入今日日程。</div>}
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="font-semi" style={{ marginBottom: 8 }}>AI 听记草稿</div>
+            <textarea placeholder="会中要点会记在这里（可先手动记）…" value={notes} onChange={(e) => setNotes(e.target.value)} rows={5} style={{ width: '100%' }} />
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ marginTop: 8 }}
+              disabled={!notes.trim()}
+              onClick={async () => {
+                try {
+                  const r = await api('/ai/complete', { method: 'POST', body: JSON.stringify({ task: 'transcribe', text: notes }) });
+                  setNotes(r.text);
+                  setError('');
+                } catch (e) {
+                  setError(e.message || '请先在设置填写 API Key');
+                }
+              }}
+            >用模型整理纪要</button>
+          </div>
+        </div>
       </div>
     </div>
   );

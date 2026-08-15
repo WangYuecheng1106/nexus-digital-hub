@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api, wsConnect } from '../api.js';
 import { Icons } from '../icons.jsx';
 import VoiceBubble from './VoiceBubble.jsx';
+import ContextMenu from '../components/ContextMenu.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 // WhatsApp 模式：左会话列表 + 右对话区；钉钉风格语音气泡
 export default function IM({ user, setUnreadCount }) {
@@ -16,11 +18,10 @@ export default function IM({ user, setUnreadCount }) {
   const [sideTab, setSideTab] = useState('chats'); // chats | friends
   const [friends, setFriends] = useState([]);
   const [friendReqs, setFriendReqs] = useState([]);
-  const [friendQuery, setFriendQuery] = useState('');
-  const [searchHits, setSearchHits] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [greeting, setGreeting] = useState('你好，我想加你为好友');
-  const [friendMsg, setFriendMsg] = useState('');
+  const [convQuery, setConvQuery] = useState('');
+  const [addFriendId, setAddFriendId] = useState('');
+  const [previewImg, setPreviewImg] = useState(null);
+  const [pinned, setPinned] = useState(() => new Set());
   const [playingId, setPlayingId] = useState(null);
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
@@ -31,6 +32,10 @@ export default function IM({ user, setUnreadCount }) {
   const chunksRef = useRef([]);
   const recTimerRef = useRef(null);
   const recStartRef = useRef(0);
+  const composerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const { showToast } = useToast();
 
   useEffect(() => { activeRef.current = activeConv; }, [activeConv]);
 
@@ -144,6 +149,18 @@ export default function IM({ user, setUnreadCount }) {
     }
   };
 
+  const pickFile = (kind) => (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !activeConv) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (kind === 'image') sendPayload('image', { name: file.name, mimeType: file.type, data: reader.result });
+      else sendPayload('file', { name: file.name, mimeType: file.type, size: file.size, data: reader.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const sendMessage = () => {
     if (!activeConv || !input.trim()) return;
     const text = input.trim();
@@ -203,12 +220,12 @@ export default function IM({ user, setUnreadCount }) {
     mediaRef.current = null;
   };
 
-  const startChat = async (memberOverride, nameOverride) => {
+  const startChat = async (memberOverride) => {
     setCreating(true);
     setError('');
     try {
       let memberId = memberOverride;
-      let name = nameOverride || '会话';
+      let name = '会话';
       if (!memberId) {
         let list = peers;
         if (!list.length) {
@@ -235,31 +252,15 @@ export default function IM({ user, setUnreadCount }) {
     }
   };
 
-  const searchFriends = async (q) => {
-    setFriendQuery(q);
-    if (!q.trim()) { setSearchHits([]); return; }
-    setSearching(true);
-    try {
-      const hits = await api(`/im/friends/search?q=${encodeURIComponent(q.trim())}`);
-      setSearchHits(Array.isArray(hits) ? hits : []);
-    } catch {
-      setSearchHits([]);
-    }
-    setSearching(false);
-  };
-
-  const sendFriendReq = async (toUserId) => {
-    if (!toUserId) return;
+  const sendFriendReq = async () => {
+    if (!addFriendId.trim()) return;
     try {
       await api('/im/friends/request', {
         method: 'POST',
-        body: JSON.stringify({ toUserId, message: greeting || '你好，我想加你为好友' }),
+        body: JSON.stringify({ toUserId: addFriendId.trim(), message: '你好，我想加你为好友' }),
       });
-      setFriendMsg('申请已发送');
-      setFriendQuery('');
-      setSearchHits([]);
+      setAddFriendId('');
       loadFriends();
-      setTimeout(() => setFriendMsg(''), 2500);
     } catch (e) {
       setError(e.message || '发送申请失败');
     }
@@ -285,14 +286,104 @@ export default function IM({ user, setUnreadCount }) {
         await api(`/im/messages/${msgId}/recall`, { method: 'POST' });
       }
       setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'recalled' } : m)));
+      showToast('消息已撤回', 'info');
     } catch (e) {
       setError(e.message || '撤回失败');
+      showToast(e.message || '撤回失败', 'error');
     }
+  };
+
+  // ---- 消息悬浮操作 ----
+  const msgText = (m) => (m.type === 'voice' ? '[语音消息]' : (m.body?.text || m.content || ''));
+
+  const replyTo = (m) => {
+    const text = msgText(m);
+    setInput(`回复「${text.slice(0, 30)}${text.length > 30 ? '…' : ''}」：`);
+    composerRef.current?.focus();
+  };
+
+  const copyMsg = async (m) => {
+    try {
+      await navigator.clipboard.writeText(msgText(m));
+      showToast('已复制', 'success');
+    } catch {
+      showToast('复制失败', 'error');
+    }
+  };
+
+  const forwardMsg = async (m) => {
+    // 暂无跨会话转发 API：先复制到剪贴板，便于粘贴转发
+    try {
+      await navigator.clipboard.writeText(msgText(m));
+      showToast('已复制，可在目标会话粘贴转发', 'info');
+    } catch {
+      showToast('复制失败', 'error');
+    }
+  };
+
+  const toTodo = async (m) => {
+    try {
+      await api('/portal/todos', {
+        method: 'POST',
+        body: JSON.stringify({ title: msgText(m).slice(0, 80) || '消息待办', source: 'im', source_id: m.id }),
+      });
+      showToast('已加入待办', 'success');
+    } catch (e) {
+      showToast(e.message || '操作失败', 'error');
+    }
+  };
+
+  const toCalendar = async (m) => {
+    try {
+      const start = Date.now() + 3600000;
+      await api('/calendar/events', {
+        method: 'POST',
+        body: JSON.stringify({ title: msgText(m).slice(0, 80) || '来自消息', start_time: start, end_time: start + 3600000 }),
+      });
+      showToast('已转到日程', 'success');
+    } catch (e) {
+      showToast(e.message || '操作失败', 'error');
+    }
+  };
+
+  const dingMsg = async (m) => {
+    if (!activeConv) return;
+    sendPayload('ding', { text: 'DING：' + (msgText(m) || '请尽快确认'), urgent: true });
+    showToast('已发送 DING', 'success');
+  };
+
+  const togglePin = (m) => {
+    setPinned((prev) => {
+      const next = new Set(prev);
+      if (next.has(m.id)) next.delete(m.id); else next.add(m.id);
+      return next;
+    });
+    showToast(pinned.has(m.id) ? '已取消钉选' : '已钉选', 'success');
+  };
+
+  const msgMenuItems = (m, mine) => {
+    const items = [
+      { label: '回复', icon: <Icons.reply size={14} />, onClick: () => replyTo(m) },
+      { label: '复制', icon: <Icons.copy size={14} />, onClick: () => copyMsg(m) },
+      { label: '转发', icon: <Icons.forward size={14} />, onClick: () => forwardMsg(m) },
+      { label: '转为待办', icon: <Icons.todo size={14} />, onClick: () => toTodo(m) },
+      { label: '转日程', icon: <Icons.calendar size={14} />, onClick: () => toCalendar(m) },
+      { label: m.type === 'ding' ? '已是 DING' : 'DING', icon: <Icons.bell size={14} />, onClick: () => dingMsg(m) },
+      { label: pinned.has(m.id) ? '取消钉选' : '钉选', icon: <Icons.pin size={14} />, onClick: () => togglePin(m) },
+    ];
+    const canRecall = mine && m.status !== 'recalled' && !String(m.id).startsWith('tmp-');
+    if (canRecall) {
+      items.push({ type: 'divider' });
+      items.push({ label: '撤回', icon: <Icons.trash size={14} />, danger: true, onClick: () => recall(m.id) });
+    }
+    return items;
   };
 
   const renderBody = (m, mine) => {
     if (m.status === 'recalled') {
-      return <div className={`msg-bubble ${mine ? 'mine' : 'theirs'}`} style={{ opacity: .55, fontStyle: 'italic' }}>消息已撤回</div>;
+      const who = mine ? '你' : (m.sender_name || '对方');
+      const kind = m.type === 'voice' ? '一条语音消息' : m.type === 'image' ? '一张图片' : m.type === 'file' ? '一个文件' : '一条消息';
+      return <div className="msg-recall-bar">{who}撤回了{kind}</div>;
     }
     if (m.type === 'voice') {
       return (
@@ -305,6 +396,31 @@ export default function IM({ user, setUnreadCount }) {
             msgId={m.id}
             onToggle={setPlayingId}
           />
+        </div>
+      );
+    }
+    if (m.type === 'image') {
+      const src = m.body?.data || m.body?.url;
+      return (
+        <div className={`msg-bubble ${mine ? 'mine' : 'theirs'}`} style={{ padding: 4 }}>
+          <button type="button" onClick={() => setPreviewImg(src)} style={{ padding: 0, background: 'none' }}>
+            <img src={src} alt={m.body?.name || '图片'} style={{ maxWidth: 240, borderRadius: 8, display: 'block' }} />
+          </button>
+        </div>
+      );
+    }
+    if (m.type === 'ding') {
+      return (
+        <div className={`msg-bubble ${mine ? 'mine' : 'theirs'}`} style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}>
+          <div className="text-xs" style={{ color: 'var(--accent)', marginBottom: 4 }}>DING</div>
+          {m.body?.text || msgText(m)}
+        </div>
+      );
+    }
+    if (m.type === 'file') {
+      return (
+        <div className={`msg-bubble ${mine ? 'mine' : 'theirs'}`}>
+          <a href={m.body?.data} download={m.body?.name} style={{ color: 'inherit' }}>{m.body?.name || '文件'}</a>
         </div>
       );
     }
@@ -332,7 +448,7 @@ export default function IM({ user, setUnreadCount }) {
             <div style={{ padding: '8px 12px' }}>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 10, top: 8, color: 'var(--text-muted)' }}><Icons.search size={14} /></span>
-                <input placeholder="搜索会话…" style={{ width: '100%', paddingLeft: 30 }} />
+                <input placeholder="搜索会话…" value={convQuery} onChange={(e) => setConvQuery(e.target.value)} style={{ width: '100%', paddingLeft: 30 }} />
               </div>
             </div>
             <div className="scroll-y" style={{ flex: 1 }}>
@@ -343,7 +459,7 @@ export default function IM({ user, setUnreadCount }) {
                   <button type="button" className="btn-default" onClick={() => startChat()} disabled={creating}>发起会话</button>
                 </div>
               )}
-              {conversations.map((c) => (
+              {conversations.filter((c) => !convQuery || (c.name || '').includes(convQuery)).map((c) => (
                 <div
                   key={c.id}
                   className={`list-row${activeConv?.id === c.id ? ' active' : ''}`}
@@ -367,79 +483,39 @@ export default function IM({ user, setUnreadCount }) {
         ) : (
           <div className="scroll-y" style={{ flex: 1, padding: 12 }}>
             <div className="font-semi" style={{ marginBottom: 8, fontSize: 12 }}>添加好友</div>
-            <input
-              placeholder="搜索姓名 / 用户名 / 手机 / 邮箱…"
-              value={friendQuery}
-              onChange={(e) => searchFriends(e.target.value)}
-              style={{ width: '100%', marginBottom: 8 }}
-            />
-            <input
-              placeholder="打招呼留言（可选）"
-              value={greeting}
-              onChange={(e) => setGreeting(e.target.value)}
-              style={{ width: '100%', marginBottom: 8, fontSize: 12 }}
-            />
-            {friendMsg && <div className="text-xs" style={{ color: 'var(--success)', marginBottom: 8 }}>{friendMsg}</div>}
-            {searching && <div className="text-xs text-muted" style={{ marginBottom: 8 }}>搜索中…</div>}
-            {searchHits.map((p) => (
-              <div key={p.id} className="list-row" style={{ marginBottom: 4 }}>
-                <div className="avatar">{(p.name || '?').charAt(0)}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="font-med" style={{ fontSize: 13 }}>{p.name}</div>
-                  <div className="text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {[p.username, p.dept, p.position].filter(Boolean).join(' · ') || p.id}
-                  </div>
-                </div>
-                {p.isFriend ? (
-                  <button type="button" className="btn-default" style={{ fontSize: 11 }} onClick={() => startChat(p.id, p.name)}>发消息</button>
-                ) : (
-                  <button type="button" className="btn-primary" style={{ fontSize: 11 }} onClick={() => sendFriendReq(p.id)}>加好友</button>
-                )}
-              </div>
-            ))}
-            {friendQuery && !searching && searchHits.length === 0 && (
-              <div className="text-xs text-muted" style={{ marginBottom: 12 }}>未找到匹配的同事</div>
-            )}
-
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+              <input placeholder="对方用户 ID" value={addFriendId} onChange={(e) => setAddFriendId(e.target.value)} style={{ flex: 1 }} />
+              <button type="button" className="btn-primary" onClick={sendFriendReq}>添加</button>
+            </div>
             {friendReqs.filter((r) => r.status === 'pending').length > 0 && (
               <>
-                <div className="font-semi" style={{ margin: '12px 0 8px', fontSize: 12 }}>
-                  新的好友申请 ({friendReqs.filter((r) => r.status === 'pending').length})
-                </div>
+                <div className="font-semi" style={{ marginBottom: 8, fontSize: 12 }}>待处理申请</div>
                 {friendReqs.filter((r) => r.status === 'pending').map((r) => (
                   <div key={r.id} className="card" style={{ marginBottom: 8, padding: 10 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                      <div className="avatar sm">{String(r.from_id || '?').charAt(0)}</div>
-                      <div style={{ flex: 1 }}>
-                        <div className="font-med" style={{ fontSize: 12 }}>{r.from_id}</div>
-                        <div className="text-xs text-muted">{r.message || '请求添加你为好友'}</div>
-                      </div>
-                    </div>
+                    <div className="text-xs">{r.message}</div>
+                    <div className="text-muted" style={{ fontSize: 11, margin: '4px 0 8px' }}>来自 {r.from_id}</div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button type="button" className="btn-primary" style={{ fontSize: 12, flex: 1 }} onClick={() => respondReq(r.id, true)}>接受</button>
-                      <button type="button" className="btn-default" style={{ fontSize: 12, flex: 1 }} onClick={() => respondReq(r.id, false)}>拒绝</button>
+                      <button type="button" className="btn-primary" style={{ fontSize: 12 }} onClick={() => respondReq(r.id, true)}>接受</button>
+                      <button type="button" className="btn-default" style={{ fontSize: 12 }} onClick={() => respondReq(r.id, false)}>拒绝</button>
                     </div>
                   </div>
                 ))}
               </>
             )}
-
-            <div className="font-semi" style={{ margin: '12px 0 8px', fontSize: 12 }}>我的好友 ({friends.length})</div>
-            {friends.length === 0 && <div className="empty" style={{ padding: 16 }}><div className="text-xs">暂无好友，搜索同事添加</div></div>}
+            <div className="font-semi" style={{ margin: '12px 0 8px', fontSize: 12 }}>我的好友</div>
+            {friends.length === 0 && <div className="empty" style={{ padding: 16 }}><div className="text-xs">暂无好友，从通讯录添加</div></div>}
             {friends.map((f) => (
               <button
                 key={f.friend_id}
                 type="button"
                 className="list-row"
                 style={{ width: '100%', border: 'none' }}
-                onClick={() => startChat(f.friend_id, f.name)}
+                onClick={() => startChat(f.friend_id)}
               >
-                <div className="avatar">{String(f.name || f.friend_id).charAt(0)}</div>
-                <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                  <div className="font-med" style={{ fontSize: 13 }}>{f.name || f.friend_id}</div>
-                  <div className="text-xs" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {[f.position, f.dept].filter(Boolean).join(' · ') || '点击发消息'}
-                  </div>
+                <div className="avatar">{String(f.friend_id).charAt(0)}</div>
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div className="font-med" style={{ fontSize: 13 }}>{f.friend_id}</div>
+                  <div className="text-xs">点击发消息</div>
                 </div>
               </button>
             ))}
@@ -452,7 +528,7 @@ export default function IM({ user, setUnreadCount }) {
           <div className="empty" style={{ flex: 1 }}>
             <Icons.chat size={32} />
             <div className="font-med">选择一个会话开始聊天</div>
-            <div className="text-xs">支持文字与语音（钉钉风格气泡）</div>
+            <div className="text-xs">文字、语音、图片与文件</div>
           </div>
         ) : (
           <>
@@ -465,25 +541,47 @@ export default function IM({ user, setUnreadCount }) {
             <div className="scroll-y" style={{ flex: 1, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {messages.map((m) => {
                 const mine = m.sender_id === user.id || m.senderId === user.id;
-                return (
-                  <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
-                    <div>
+                const canRecall = mine && m.status !== 'recalled' && !String(m.id).startsWith('tmp-');
+                if (m.status === 'recalled') {
+                  return (
+                    <div key={m.id} className="msg-row" style={{ display: 'flex', justifyContent: 'center' }}>
                       {renderBody(m, mine)}
-                      <div className="text-muted" style={{ fontSize: 10, marginTop: 3, textAlign: mine ? 'right' : 'left' }}>
-                        {fmtTime(m.created_at)}
-                        {mine && m.status !== 'recalled' && (
-                          <button type="button" className="btn-ghost" style={{ fontSize: 10, padding: '0 4px', marginLeft: 6 }} onClick={() => recall(m.id)}>撤回</button>
-                        )}
+                    </div>
+                  );
+                }
+                return (
+                  <ContextMenu key={m.id} items={msgMenuItems(m, mine)}>
+                    <div className="msg-row" style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+                      <div style={{ position: 'relative' }}>
+                        <div className={`msg-actions ${mine ? 'right' : 'left'}`} role="toolbar" aria-label="消息操作">
+                          <button type="button" className="btn-icon" title="回复" onClick={() => replyTo(m)}><Icons.reply size={13} /></button>
+                          <button type="button" className="btn-icon" title="复制" onClick={() => copyMsg(m)}><Icons.copy size={13} /></button>
+                          <button type="button" className="btn-icon" title="转发" onClick={() => forwardMsg(m)}><Icons.forward size={13} /></button>
+                          <button type="button" className="btn-icon" title="转为待办" onClick={() => toTodo(m)}><Icons.todo size={13} /></button>
+                          {canRecall && (
+                            <button type="button" className="btn-icon danger" title="撤回" onClick={() => recall(m.id)}><Icons.trash size={13} /></button>
+                          )}
+                        </div>
+                        {renderBody(m, mine)}
+                        <div className="text-muted" style={{ fontSize: 10, marginTop: 3, textAlign: mine ? 'right' : 'left' }}>
+                          {fmtTime(m.created_at)}
+                          {canRecall && (
+                            <button type="button" className="btn-ghost" style={{ fontSize: 10, padding: '0 4px', marginLeft: 6 }} onClick={() => recall(m.id)}>撤回</button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </ContextMenu>
                 );
               })}
               <div ref={msgEndRef} />
             </div>
             <div className="composer">
-              <button type="button" className="btn-icon" title="附件"><Icons.attach size={16} /></button>
-              <button type="button" className="btn-icon" title="图片"><Icons.image size={16} /></button>
+              <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={pickFile('file')} />
+              <input ref={imageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={pickFile('image')} />
+              <button type="button" className="btn-icon" title="附件" onClick={() => fileInputRef.current?.click()}><Icons.attach size={16} /></button>
+              <button type="button" className="btn-icon" title="图片" onClick={() => imageInputRef.current?.click()}><Icons.image size={16} /></button>
+              <button type="button" className="btn-icon" title="DING" onClick={() => { if (!input.trim()) return; sendPayload('ding', { text: 'DING：' + input.trim(), urgent: true }); setInput(''); }} disabled={!activeConv}><Icons.bell size={16} /></button>
               {!recording ? (
                 <button type="button" className="btn-icon" title="按住说话（点击开始）" onClick={startVoice} disabled={!activeConv}>
                   <Icons.mic size={16} />
@@ -494,6 +592,7 @@ export default function IM({ user, setUnreadCount }) {
                 </button>
               )}
               <textarea
+                ref={composerRef}
                 rows={1}
                 placeholder="输入消息…"
                 value={input}
@@ -510,6 +609,11 @@ export default function IM({ user, setUnreadCount }) {
         )}
         {error && <div style={{ padding: '6px 12px', background: 'rgba(239,95,95,.12)', color: 'var(--error)', fontSize: 12 }}>{error}</div>}
       </section>
+      {previewImg && (
+        <div className="modal-overlay" onClick={() => setPreviewImg(null)} role="dialog">
+          <img src={previewImg} alt="预览" style={{ maxWidth: '86vw', maxHeight: '86vh', borderRadius: 8 }} />
+        </div>
+      )}
     </div>
   );
 }

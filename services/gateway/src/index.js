@@ -5,7 +5,7 @@ import http from 'node:http';
 import { createService, openDb, migrate, verifyToken } from '@nexus/shared';
 
 const SERVICE_PORTS = {
-  auth: 8081, user: 8082, im: 8083, meeting: 8084, document: 8085, workflow: 8086,
+  auth: 8081, im: 8083, meeting: 8084, document: 8085, workflow: 8086,
   knowledge: 8087, calendar: 8088, drive: 8089, project: 8090, attendance: 8091,
   contacts: 8092, forum: 8093, notification: 8094, integration: 8095, ai: 8096,
   analytics: 8097, portal: 8098,
@@ -34,13 +34,35 @@ function rateLimit(perMinute) {
 }
 
 // ---- 内置反向代理 ----
-// express.json() 会消费请求体，所以这里需要手动重写 body
+// express.json() 会消费 JSON 请求体；multipart 必须原样 pipe，否则 multer 报 Unexpected end of form
 function proxyTo(port, prefix) {
   return (req, res) => {
-    // 剥离 /api/<service> 前缀，后端服务看到的是不带前缀的路径
     const targetPath = req.url.replace(prefix, '') || '/';
-    // GET/HEAD 禁止转发 body：express.json 会把空体解析成 {}，若再带 Content-Length
-    // 上游会一直等 body 字节，导致列表接口永久挂起（功能全挂的根因）。
+    const ct = String(req.headers['content-type'] || '');
+    const isMultipart = ct.includes('multipart/form-data');
+    const onUp = (upRes) => {
+      res.writeHead(upRes.statusCode, upRes.headers);
+      upRes.pipe(res);
+    };
+    const fail = () => {
+      if (!res.headersSent) res.writeHead(502, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'service_unavailable', message: '目标服务暂不可用' }));
+    };
+
+    if (isMultipart) {
+      const headers = { ...req.headers, host: `localhost:${port}` };
+      const upstream = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: targetPath,
+        method: req.method,
+        headers,
+      }, onUp);
+      upstream.on('error', fail);
+      req.pipe(upstream);
+      return;
+    }
+
     const canHaveBody = !['GET', 'HEAD'].includes(req.method);
     const hasBody = canHaveBody && req.body !== undefined && req.body !== null
       && !(typeof req.body === 'object' && !Buffer.isBuffer(req.body) && Object.keys(req.body).length === 0);
@@ -52,21 +74,14 @@ function proxyTo(port, prefix) {
       headers['content-type'] = headers['content-type'] || 'application/json';
       headers['content-length'] = Buffer.byteLength(body);
     }
-    const opts = {
+    const upstream = http.request({
       hostname: '127.0.0.1',
       port,
       path: targetPath,
       method: req.method,
       headers,
-    };
-    const upstream = http.request(opts, (upRes) => {
-      res.writeHead(upRes.statusCode, upRes.headers);
-      upRes.pipe(res);
-    });
-    upstream.on('error', () => {
-      if (!res.headersSent) res.writeHead(502, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'service_unavailable', message: '目标服务暂不可用' }));
-    });
+    }, onUp);
+    upstream.on('error', fail);
     if (body !== null) upstream.write(body);
     upstream.end();
   };
@@ -77,6 +92,21 @@ const { app, server, ctx } = createService({
   port: 8080,
   publicPaths: ['/api/auth/*', '/internal/*', '/debug/*', '/health', '/api/services/*', '/'],
   setup(app, ctx) {
+    // 允许 EdgeOne 前端域名跨域访问（同域反代时不需要，双域名时需要）
+    const allowOrigin = process.env.CORS_ORIGIN || '*';
+    app.use((req, res, next) => {
+      const origin = req.headers.origin;
+      if (allowOrigin === '*') res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      else if (origin && allowOrigin.split(',').map((s) => s.trim()).includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      }
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      if (req.method === 'OPTIONS') return res.status(204).end();
+      next();
+    });
+
     // ---- 跨服务事件总线 ----
     app.post('/internal/subscribe', (req, res) => {
       if (req.headers['x-internal-token'] !== INTERNAL_TOKEN) return res.status(403).json({ error: 'forbidden' });

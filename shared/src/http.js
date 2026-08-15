@@ -23,8 +23,13 @@ const INTERNAL_TOKEN = process.env.NEXUS_INTERNAL_TOKEN || 'nexus-internal-dev-t
 export function createService({ name, port, setup, publicPaths = [] }) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  app.use((req, res, next) => {
+    if (String(req.headers['content-type'] || '').includes('multipart/form-data')) return next();
+    express.json({ limit: '50mb' })(req, res, (err) => {
+      if (err) return next(err);
+      express.urlencoded({ extended: true })(req, res, next);
+    });
+  });
 
   const startedAt = Date.now();
   let requestCount = 0;
@@ -98,7 +103,10 @@ export function createService({ name, port, setup, publicPaths = [] }) {
     res.status(status).json({ error: err.name || 'error', message: err.message || '服务器内部错误', details: err.details });
   });
 
-  server.listen(port, () => console.log(`[${name}] listening on :${port}`));
+  // 网关默认可被公网访问；其它微服务只绑本机，避免误暴露
+  const host = process.env.LISTEN_HOST
+    || (name === 'gateway' ? (process.env.GATEWAY_HOST || '0.0.0.0') : '127.0.0.1');
+  server.listen(port, host, () => console.log(`[${name}] listening on ${host}:${port}`));
   return { app, server, ctx };
 }
 

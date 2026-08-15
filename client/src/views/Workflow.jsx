@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api.js';
 import { Icons } from '../icons.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 
 export default function Workflow({ setPendingApprovals }) {
   const [tab, setTab] = useState('pending');
@@ -44,7 +45,7 @@ export default function Workflow({ setPendingApprovals }) {
     try {
       await api('/workflow/submit', {
         method: 'POST',
-        body: JSON.stringify({ flowDefId: tpl.flow_id || tpl.flowId || tpl.id, formData: { reason: '演示提交' } }),
+        body: JSON.stringify({ flowDefId: tpl.flow_def_id || tpl.flowDefId || tpl.flow_id, formData: { reason: '演示提交' } }),
       });
       setTab('pending');
     } catch (e) { setError(e.message || '提交失败'); }
@@ -75,12 +76,19 @@ export default function Workflow({ setPendingApprovals }) {
                 <div className="text-xs">发起人 {t.initiator_id} · {t.created_at ? new Date(t.created_at).toLocaleString('zh-CN') : ''}</div>
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button type="button" className="btn-primary" onClick={() => approve(t.id, 'approved', '同意')}>同意</button>
-                <button type="button" className="btn-danger" onClick={() => approve(t.id, 'rejected', '拒绝')}>拒绝</button>
+                <button type="button" className="btn-primary" onClick={() => approve(t.id, 'approve', '同意')}>同意</button>
+                <button type="button" className="btn-danger" onClick={() => approve(t.id, 'reject', '拒绝')}>拒绝</button>
               </div>
             </div>
           ))}
-          {tasks.length === 0 && <div className="empty"><Icons.check size={28} /><div>暂无待办审批</div></div>}
+          {tasks.length === 0 && (
+            <EmptyState
+              icon={<Icons.check size={28} />}
+              title="暂无待办审批"
+              description="从模板发起一份请假或报销，提交后会出现在这里。"
+              action={<button type="button" className="btn-primary" onClick={() => setTab('templates')}>发起审批</button>}
+            />
+          )}
         </div>
       )}
 

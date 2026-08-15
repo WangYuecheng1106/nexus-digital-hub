@@ -8,3 +8,7 @@ services/*/data
 screenshots/*.webm
 screenshots/*-chromium
 .DS_Store
+build/
+client/release/
+client/public/downloads/*.exe
+client/public/downloads/*.blockmap

@@ -66,8 +66,8 @@ export default function Attendance({ user }) {
             {records.map((r, i) => (
               <tr key={r.id || i}>
                 <td style={{ padding: 8, borderBottom: '1px solid var(--border-subtle)' }}>{new Date(r.punch_time || r.created_at).toLocaleString('zh-CN')}</td>
-                <td style={{ padding: 8 }}>{r.type || r.punch_type || '—'}</td>
-                <td style={{ padding: 8 }}>{r.method || 'gps'}</td>
+                <td style={{ padding: 8 }}>{({ check_in: '上班', check_out: '下班' })[r.type || r.punch_type] || r.type || '打卡'}</td>
+                <td style={{ padding: 8 }}>{({ gps: '定位', wifi: 'Wi-Fi', face: '人脸', manual: '补卡' })[r.method] || r.method || '定位'}</td>
                 <td style={{ padding: 8 }}>{r.late ? <span className="tag" style={{ background: 'rgba(230,184,77,.15)', color: 'var(--warning)' }}>迟到</span> : <span className="tag" style={{ background: 'rgba(62,207,142,.12)', color: 'var(--success)' }}>正常</span>}</td>
               </tr>
             ))}

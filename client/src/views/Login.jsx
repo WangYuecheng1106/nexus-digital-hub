@@ -36,7 +36,7 @@ export default function Login({ onLogin, onBack }) {
   return (
     <div style={{
       height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'radial-gradient(1200px 600px at 20% -10%, rgba(59,130,246,.12), transparent), var(--bg)',
+      background: 'var(--bg)',
     }}>
       <form onSubmit={submit} className="card" style={{ width: 380, padding: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>

@@ -2,7 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../api.js';
 import { Icons } from '../icons.jsx';
 
-// 员工端通讯录：组织树 + WhatsApp 式加好友 / 发消息
+function roleLabel(emp) {
+  const raw = emp.position || emp.title || emp.role || emp.job || '';
+  if (!raw || /^[?？]+$/.test(String(raw))) return '成员';
+  return raw;
+}
+
+function flattenDepts(list, acc = [], seen = new Set()) {
+  for (const d of list || []) {
+    if (!d || seen.has(d.id)) {
+      if (d?.children) flattenDepts(d.children, acc, seen);
+      continue;
+    }
+    seen.add(d.id);
+    acc.push(d);
+    if (d.children) flattenDepts(d.children, acc, seen);
+  }
+  return acc;
+}
+
 export default function Contacts({ user, navigate }) {
   const [departments, setDepartments] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -12,12 +30,21 @@ export default function Contacts({ user, navigate }) {
   const [error, setError] = useState('');
   const [friendMap, setFriendMap] = useState({});
   const [msg, setMsg] = useState('');
+  const [deptCounts, setDeptCounts] = useState({});
 
   useEffect(() => {
     api('/contacts/departments').then((d) => {
       const list = Array.isArray(d) ? d : (d.tree || d.items || []);
       setDepartments(flattenDepts(list));
     }).catch((e) => setError(e.message));
+    api('/contacts/employees').then((d) => {
+      const list = Array.isArray(d) ? d : (d.items || []);
+      const m = {};
+      for (const e of list) {
+        if (e.dept_id) m[e.dept_id] = (m[e.dept_id] || 0) + 1;
+      }
+      setDeptCounts(m);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -26,6 +53,12 @@ export default function Contacts({ user, navigate }) {
     if (search) url += 'q=' + encodeURIComponent(search);
     api(url).then((d) => setEmployees(Array.isArray(d) ? d : (d.items || []))).catch(() => setEmployees([]));
   }, [selectedDept, search]);
+
+  const counts = employees.reduce((m, e) => {
+    const id = e.dept_id;
+    if (id) m[id] = (m[id] || 0) + 1;
+    return m;
+  }, {});
 
   const checkFriend = async (uid) => {
     if (!uid || friendMap[uid] !== undefined) return;
@@ -83,7 +116,7 @@ export default function Contacts({ user, navigate }) {
         >
           <Icons.folder size={14} />
           <span style={{ fontSize: 13 }}>{d.name}</span>
-          <span className="text-xs">({d.employee_count || 0})</span>
+          <span className="text-xs">({d.employee_count || d.headcount || deptCounts[d.id] || counts[d.id] || 0})</span>
         </button>
         {renderTree(d.id, level + 1)}
       </div>
@@ -97,7 +130,6 @@ export default function Contacts({ user, navigate }) {
           <input placeholder="搜索人员…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '100%', marginBottom: 8 }} />
           <button type="button" className={`list-row${!selectedDept ? ' active' : ''}`} style={{ width: '100%', border: 'none' }} onClick={() => setSelectedDept(null)}>全部</button>
           {renderTree(null)}
-          {renderTree(undefined)}
         </div>
       </aside>
       <div className="scroll-y" style={{ flex: 1, padding: 16 }}>
@@ -108,7 +140,7 @@ export default function Contacts({ user, navigate }) {
             <button key={e.id} type="button" className="card" style={{ cursor: 'pointer', textAlign: 'center' }} onClick={() => setSelected(e)}>
               <div className="avatar accent" style={{ margin: '0 auto 8px' }}>{(e.name || '?').charAt(0)}</div>
               <div className="font-semi">{e.name}</div>
-              <div className="text-xs">{e.position}</div>
+              <div className="text-xs">{roleLabel(e)}</div>
             </button>
           ))}
         </div>
@@ -123,7 +155,7 @@ export default function Contacts({ user, navigate }) {
           <div style={{ textAlign: 'center', marginBottom: 14 }}>
             <div className="avatar accent" style={{ width: 56, height: 56, fontSize: 20, margin: '0 auto 8px' }}>{selected.name?.charAt(0)}</div>
             <div style={{ fontSize: 16, fontWeight: 650 }}>{selected.name}</div>
-            <div className="text-xs">{selected.position}</div>
+            <div className="text-xs">{roleLabel(selected)}</div>
           </div>
           <div style={{ display: 'grid', gap: 8, fontSize: 13, marginBottom: 16 }}>
             <div>{selected.email || '—'}</div>
@@ -149,14 +181,6 @@ export default function Contacts({ user, navigate }) {
       )}
     </div>
   );
-}
-
-function flattenDepts(list, acc = []) {
-  for (const d of list) {
-    acc.push(d);
-    if (d.children) flattenDepts(d.children, acc);
-  }
-  return acc;
 }
 
 function maskPhone(phone) {

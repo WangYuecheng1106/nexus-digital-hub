@@ -3,15 +3,80 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Nexus 数字中枢 Windows 客户端",
+  "author": "Nexus",
   "scripts": {
     "dev": "vite --port 5173",
-    "build": "vite build",
+    "build": "vite build && node --input-type=module -e \"import fs from 'node:fs'; fs.copyFileSync('dist/index.html','dist/404.html')\"",
     "preview": "vite preview",
-    "electron": "electron ."
+    "electron": "electron .",
+    "pack:win": "node ../scripts/pack-windows.mjs"
   },
   "main": "electron-main.cjs",
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "electron": "43.4.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.nexus.desktop",
+    "productName": "Nexus",
+    "electronVersion": "43.4.0",
+    "copyright": "Copyright © Nexus",
+    "directories": {
+      "output": "../build/desktop-release",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "electron-main.cjs",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist",
+        "to": "ui"
+      },
+      {
+        "from": "../build/desktop-runtime",
+        "to": "runtime"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Nexus-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nexus 数字中枢",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "language": "2052"
+    },
+    "portable": {
+      "artifactName": "Nexus-Portable-${version}.${ext}"
+    },
+    "asar": true
   }
 }

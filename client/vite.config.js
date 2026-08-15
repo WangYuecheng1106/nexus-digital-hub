@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   root: '.',
-  base: './',
+  // EdgeOne 自定义域名用绝对根路径；本地 Electron 可用 VITE_BASE=./
+  base: process.env.VITE_BASE || '/',
   plugins: [react()],
   server: {
     port: 5173,
@@ -15,7 +16,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     chunkSizeWarningLimit: 2000,
-  rollupOptions: {
+    rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],

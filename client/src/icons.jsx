@@ -78,4 +78,39 @@ export const Icons = {
     <circle cx="12" cy="12" r="3" /><circle cx="5" cy="7" r="2" /><circle cx="19" cy="7" r="2" /><circle cx="5" cy="17" r="2" /><circle cx="19" cy="17" r="2" />
     <path d="M7 8l3 2.5M17 8l-3 2.5M7 16l3-2.5M17 16l-3-2.5" />
   </>} {...p} />,
+  reply: (p) => <S d={<>
+    <path d="M9 17l-5-5 5-5" /><path d="M20 18v-1a6 6 0 00-6-6H4" />
+  </>} {...p} />,
+  forward: (p) => <S d={<>
+    <path d="M15 17l5-5-5-5" /><path d="M4 18v-1a6 6 0 016-6h10" />
+  </>} {...p} />,
+  copy: (p) => <S d={<>
+    <rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+  </>} {...p} />,
+  trash: (p) => <S d={<>
+    <path d="M3 6h18" /><path d="M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2" />
+    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><path d="M10 11v6M14 11v6" />
+  </>} {...p} />,
+  x: (p) => <S d="M18 6L6 18M6 6l12 12" {...p} />,
+  info: (p) => <S d={<>
+    <circle cx="12" cy="12" r="9" /><path d="M12 8h.01M12 11v5" />
+  </>} {...p} />,
+  warning: (p) => <S d={<>
+    <path d="M12 3L2 20h20L12 3z" /><path d="M12 10v4M12 17.5h.01" />
+  </>} {...p} />,
+  todo: (p) => <S d={<>
+    <path d="M9 11l2 2 4-4" /><rect x="3" y="3" width="18" height="18" rx="3" />
+  </>} {...p} />,
+  pin: (p) => <S d={<>
+    <path d="M12 17v5M9 3h6l-1 7 3 3H7l3-3L9 3z" />
+  </>} {...p} />,
+  bell: (p) => <S d={<>
+    <path d="M18 16v-5a6 6 0 10-12 0v5l-2 2h16l-2-2z" /><path d="M10 20a2 2 0 004 0" />
+  </>} {...p} />,
+  upload: (p) => <S d={<>
+    <path d="M12 16V4M8 8l4-4 4 4" /><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+  </>} {...p} />,
+  enter: (p) => <S d={<>
+    <path d="M20 4v6a2 2 0 01-2 2H4" /><path d="M9 7l-5 5 5 5" />
+  </>} {...p} />,
 };

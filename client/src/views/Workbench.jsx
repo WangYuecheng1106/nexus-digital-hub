@@ -10,9 +10,12 @@ const APPS = [
   { key: 'workflow', label: '审批', Icon: Icons.check },
   { key: 'calendar', label: '日程', Icon: Icons.calendar },
   { key: 'drive', label: '云盘', Icon: Icons.folder },
+  { key: 'project', label: '项目', Icon: Icons.board },
   { key: 'attendance', label: '考勤', Icon: Icons.clock },
   { key: 'contacts', label: '通讯录', Icon: Icons.user },
   { key: 'forum', label: '论坛', Icon: Icons.globe },
+  { key: 'knowledge', label: '图谱', Icon: Icons.graph },
+  { key: 'analytics', label: '分析', Icon: Icons.chart },
   { key: 'ai', label: 'AI', Icon: Icons.spark },
 ];
 
@@ -21,6 +24,29 @@ function greet() {
   if (h < 12) return '上午好';
   if (h < 18) return '下午好';
   return '晚上好';
+}
+
+function friendlyName(user) {
+  const name = user?.display_name || user?.username || '同事';
+  if (name === '系统管理员' || user?.username === 'admin') return '演示用户';
+  return name;
+}
+
+function humanTitle(t) {
+  const raw = String(t.title || t.flow_name || '').trim();
+  if (!raw) return '待处理事项';
+  if (/^待办消息[-_]?\d+$/.test(raw)) return '一条消息待跟进';
+  return raw;
+}
+
+function goSource(t, navigate) {
+  const src = String(t.source || t.label || '');
+  if (/im|消息/.test(src)) navigate('im');
+  else if (/calendar|日程|ai/.test(src) && /日程/.test(t.title || '')) navigate('calendar');
+  else if (/calendar|日程/.test(src)) navigate('calendar');
+  else if (/project|项目/.test(src)) navigate('project');
+  else if (/ai/.test(src)) navigate('ai');
+  else navigate('workflow');
 }
 
 export default function Workbench({ user, navigate }) {
@@ -39,7 +65,9 @@ export default function Workbench({ user, navigate }) {
     api('/services/health').then(setServices).catch(() => {});
     api('/portal/todos').then((d) => setTodos(Array.isArray(d) ? d : (d.items || []))).catch(() => setTodos([]));
     const day = new Date().toISOString().slice(0, 10);
-    api(`/calendar/events?from=${day}T00:00:00.000Z&to=${day}T23:59:59.999Z`).then((d) => setEvents(Array.isArray(d) ? d : (d.items || d.events || []))).catch(() => setEvents([]));
+    api(`/calendar/events?from=${day}T00:00:00.000Z&to=${day}T23:59:59.999Z`)
+      .then((d) => setEvents(Array.isArray(d) ? d : (d.items || d.events || [])))
+      .catch(() => setEvents([]));
   }, []);
 
   const punch = async () => {
@@ -51,24 +79,24 @@ export default function Workbench({ user, navigate }) {
     }
   };
 
-  const up = services.filter((s) => s.status === 'ok').length;
+  const live = (services || []).filter((s) => s.name !== 'user' && s.name !== 'auth');
+  const up = live.filter((s) => s.status === 'ok').length;
 
   return (
-    <div className="scroll-y" style={{ height: '100%', padding: 20 }}>
+    <div className="scroll-y workbench-page" style={{ height: '100%', padding: 20 }}>
       <div className="card" style={{
         marginBottom: 14,
-        background: 'linear-gradient(135deg, var(--accent-soft), transparent), var(--bg-elevated)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 650, letterSpacing: '-0.03em', marginBottom: 4 }}>
-            {greet()}，{user.display_name}
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 500, letterSpacing: '-0.03em', marginBottom: 4 }}>
+            {greet()}，{friendlyName(user)}
           </div>
           <div className="text-xs">
-            {user.position || '员工'} · {now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })}
           </div>
         </div>
-        <div className="tag">{up}/{services.length || '—'} 服务在线</div>
+        {live.length > 0 && <div className="tag">{up}/{live.length} 服务在线</div>}
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 14 }}>
@@ -76,9 +104,16 @@ export default function Workbench({ user, navigate }) {
           <div className="label">待办事项</div>
           <div className="value" style={{ color: todos.length ? 'var(--warning)' : 'var(--text)' }}>{todos.length}</div>
           <div className="text-xs" style={{ marginTop: 6 }}>
-            {todos.length === 0 ? '暂无待办' : todos.slice(0, 2).map((t) => t.title || t.flow_name || '审批').join(' · ')}
+            {todos.length === 0 ? '暂无待办' : todos.slice(0, 2).map(humanTitle).join(' · ')}
           </div>
-          <button type="button" className="btn-ghost" style={{ marginTop: 8, padding: 0 }} onClick={() => navigate('workflow')}>去处理</button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginTop: 8 }}>
+            {todos.slice(0, 3).map((t) => (
+              <button key={t.id} type="button" className="btn-ghost" style={{ padding: 0, textAlign: 'left' }} onClick={() => goSource(t, navigate)}>
+                {humanTitle(t)}
+              </button>
+            ))}
+            {todos.length === 0 && <button type="button" className="btn-ghost" style={{ padding: 0 }} onClick={() => navigate('workflow')}>去处理审批</button>}
+          </div>
         </div>
         <div className="stat-card">
           <div className="label">今日日程</div>

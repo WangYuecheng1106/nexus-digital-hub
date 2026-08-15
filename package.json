@@ -17,7 +17,11 @@
     "start:electron": "node scripts/dev.js --electron",
     "seed": "node scripts/seed.js",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "experience": "node scripts/experience-robot.mjs",
+    "experience:dingtalk": "node scripts/ui-tars-dingtalk.mjs",
+    "prod:vps": "node scripts/prod-vps.mjs",
+    "pack:win": "node scripts/pack-windows.mjs"
   },
   "dependencies": {
     "axios": "^1.7.9",
@@ -25,18 +29,20 @@
     "dayjs": "^1.11.13",
     "express": "^4.21.2",
     "http-proxy-middleware": "^3.0.3",
+    "imapflow": "^1.7.0",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.8.0",
     "mime-types": "^2.1.35",
     "multer": "^2.0.1",
     "node-cron": "^3.0.3",
+    "nodemailer": "^9.0.5",
     "pdf-parse": "^1.1.1",
     "qrcode": "^1.5.4",
     "ws": "^8.18.0",
     "xlsx": "^0.18.5",
     "y-protocols": "^1.0.6",
-    "yjs": "^13.6.21",
-    "y-websocket": "^2.1.0"
+    "y-websocket": "^2.1.0",
+    "yjs": "^13.6.21"
   },
   "devDependencies": {
     "@playwright/test": "^1.50.1",
