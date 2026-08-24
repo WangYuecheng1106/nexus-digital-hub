@@ -74,3 +74,29 @@ export function findSingleConversation(userA, userB) {
 export function getConversationMembers(convId) {
   return db.all('SELECT user_id FROM conversation_members WHERE conversation_id = ?', convId).map((m) => m.user_id);
 }
+
+export function ensureNoticeConv(userId) {
+  const uid = String(userId);
+  const existing = db.get(
+    `SELECT c.* FROM conversations c
+     JOIN conversation_members m ON m.conversation_id = c.id
+     WHERE c.type = 'notice' AND m.user_id = ?`,
+    uid
+  );
+  if (existing) return existing;
+  const id = snowflake();
+  const now = Date.now();
+  db.run('INSERT INTO conversations (id, type, name, owner_id, created_at, updated_at) VALUES (?,?,?,?,?,?)',
+    id, 'notice', '工作通知', uid, now, now);
+  db.run('INSERT INTO conversation_members (conversation_id, user_id, role, joined_at) VALUES (?,?,?,?)',
+    id, uid, 'member', now);
+  return db.get('SELECT * FROM conversations WHERE id = ?', id);
+}
+
+export function postWorkNotice(hub, userId, text) {
+  if (!userId || !hub) return null;
+  const conv = ensureNoticeConv(userId);
+  const msg = createMessage(conv.id, 'system', 'text', { text, workNotice: true });
+  deliverMessage(hub, msg);
+  return msg;
+}

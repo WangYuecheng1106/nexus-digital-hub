@@ -4,10 +4,24 @@
 import { asyncRoute, requireFields, badRequest, notFound, forbidden, publishEvent, pageParams, snowflake } from '@nexus/shared';
 import { db, insertEvent, expandRepeats, detectConflicts, HOLIDAYS_2026 } from './repo.js';
 
+function parseTs(v) {
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'number' && Number.isFinite(v)) return v < 1e11 ? v * 1000 : v;
+  const n = Number(v);
+  if (Number.isFinite(n) && String(v).trim() !== '' && !String(v).includes('-') && !String(v).includes('T')) {
+    return n < 1e11 ? n * 1000 : n;
+  }
+  const p = Date.parse(v);
+  return p;
+}
+
 export function setupRoutes(app) {
   // ---- 事件 CRUD ----
   app.post('/events', asyncRoute(async (req, res) => {
     requireFields(req.body, ['title', 'start_time', 'end_time']);
+    req.body.start_time = parseTs(req.body.start_time);
+    req.body.end_time = parseTs(req.body.end_time);
+    if (!Number.isFinite(req.body.start_time) || !Number.isFinite(req.body.end_time)) throw badRequest('时间格式无效');
     if (req.body.end_time <= req.body.start_time) throw badRequest('结束时间必须晚于开始时间');
     const ev = insertEvent(String(req.user.sub), req.body);
     // 组织者默认参会，避免组织者自身漏掉会议
@@ -20,7 +34,8 @@ export function setupRoutes(app) {
   app.get('/events', asyncRoute(async (req, res) => {
     const { from, to, view } = req.query;
     if (!from || !to) throw badRequest('需要 from 与 to 时间参数');
-    const f = Number(from), t = Number(to);
+    const f = parseTs(from), t = parseTs(to);
+    if (!Number.isFinite(f) || !Number.isFinite(t)) throw badRequest('from/to 时间格式无效');
     const rows = db.all('SELECT * FROM events WHERE start_time < ? AND end_time > ? ORDER BY start_time', t, f);
     // 仅返回当前用户可见的事件：组织者本人或被邀请且未拒绝
     const visible = [];

@@ -1,0 +1,317 @@
+{
+  "generatedAt": "2026-08-24T04:19:24.334Z",
+  "base": "http://localhost:5173",
+  "shots": [
+    {
+      "name": "00-landing",
+      "file": "D:\\NEXUS\\screenshots\\experience\\00-landing.png"
+    },
+    {
+      "name": "00-login",
+      "file": "D:\\NEXUS\\screenshots\\experience\\00-login.png"
+    },
+    {
+      "name": "01-workbench",
+      "file": "D:\\NEXUS\\screenshots\\experience\\01-workbench.png"
+    },
+    {
+      "name": "probe-cmdk",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-cmdk.png"
+    },
+    {
+      "name": "mod-workbench",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-workbench.png"
+    },
+    {
+      "name": "mod-im",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-im.png"
+    },
+    {
+      "name": "mod-mail",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-mail.png"
+    },
+    {
+      "name": "mod-meeting",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-meeting.png"
+    },
+    {
+      "name": "mod-contacts",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-contacts.png"
+    },
+    {
+      "name": "mod-document",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-document.png"
+    },
+    {
+      "name": "mod-drive",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-drive.png"
+    },
+    {
+      "name": "mod-calendar",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-calendar.png"
+    },
+    {
+      "name": "mod-workflow",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-workflow.png"
+    },
+    {
+      "name": "mod-project",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-project.png"
+    },
+    {
+      "name": "mod-attendance",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-attendance.png"
+    },
+    {
+      "name": "mod-forum",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-forum.png"
+    },
+    {
+      "name": "mod-knowledge",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-knowledge.png"
+    },
+    {
+      "name": "mod-analytics",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-analytics.png"
+    },
+    {
+      "name": "mod-ai",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-ai.png"
+    },
+    {
+      "name": "mod-settings",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-settings.png"
+    },
+    {
+      "name": "probe-mail-open",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-mail-open.png"
+    },
+    {
+      "name": "mod-im",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-im.png"
+    },
+    {
+      "name": "probe-im-ctx",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-im-ctx.png"
+    },
+    {
+      "name": "probe-modal-calendar",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-modal-calendar.png"
+    },
+    {
+      "name": "probe-modal-project",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-modal-project.png"
+    },
+    {
+      "name": "probe-modal-forum",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-modal-forum.png"
+    },
+    {
+      "name": "mod-ai",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-ai.png"
+    },
+    {
+      "name": "probe-ai-tool",
+      "file": "D:\\NEXUS\\screenshots\\experience\\probe-ai-tool.png"
+    },
+    {
+      "name": "mod-workflow",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-workflow.png"
+    },
+    {
+      "name": "mod-workflow-templates",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-workflow-templates.png"
+    },
+    {
+      "name": "mod-knowledge",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-knowledge.png"
+    },
+    {
+      "name": "mod-meeting",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-meeting.png"
+    },
+    {
+      "name": "mod-mail",
+      "file": "D:\\NEXUS\\screenshots\\experience\\mod-mail.png"
+    }
+  ],
+  "consoleErrors": [
+    "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `div`.  It was passed a child from Meeting."
+  ],
+  "pageErrors": [],
+  "findings": [
+    {
+      "area": "aesthetic",
+      "severity": "ok",
+      "title": "落地页有品牌入口",
+      "detail": "存在进入工作台 / 在线体验 CTA",
+      "at": "2026-08-24T04:18:34.506Z"
+    },
+    {
+      "area": "aesthetic",
+      "severity": "ok",
+      "title": "落地页有 Changelog",
+      "detail": "#nx-changelog 更新 6 条",
+      "at": "2026-08-24T04:18:34.577Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "命令面板可打开",
+      "detail": "Ctrl+K 出现 .cmdk-overlay",
+      "at": "2026-08-24T04:18:44.265Z"
+    },
+    {
+      "area": "system",
+      "severity": "ok",
+      "title": "命令面板可搜到审批",
+      "detail": "模糊搜索命中审批相关项",
+      "at": "2026-08-24T04:18:44.638Z"
+    },
+    {
+      "area": "aesthetic",
+      "severity": "ok",
+      "title": "工作台有应用中心",
+      "detail": "九宫格入口存在",
+      "at": "2026-08-24T04:19:00.108Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "邮件可打开正文",
+      "detail": "",
+      "at": "2026-08-24T04:19:02.908Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "IM 可发文字消息",
+      "detail": "体验机器人-45274",
+      "at": "2026-08-24T04:19:05.560Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "消息悬停操作条出现",
+      "detail": "回复/复制/转发/转待办",
+      "at": "2026-08-24T04:19:05.824Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "消息右键弹出上下文菜单",
+      "detail": "复制/转待办/撤回",
+      "at": "2026-08-24T04:19:06.130Z"
+    },
+    {
+      "area": "system",
+      "severity": "ok",
+      "title": "消息→待办闭环可用",
+      "detail": "右键转为待办出现 toast",
+      "at": "2026-08-24T04:19:06.706Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "IM 附件有承接",
+      "detail": "dialogs=2",
+      "at": "2026-08-24T04:19:07.082Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "calendar 弹窗出现",
+      "detail": "/新建日程/",
+      "at": "2026-08-24T04:19:09.130Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "calendar ESC 关闭弹窗",
+      "detail": "",
+      "at": "2026-08-24T04:19:09.430Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "project 弹窗出现",
+      "detail": "/新建任务/",
+      "at": "2026-08-24T04:19:10.943Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "project ESC 关闭弹窗",
+      "detail": "",
+      "at": "2026-08-24T04:19:11.218Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "forum 弹窗出现",
+      "detail": "/发布/",
+      "at": "2026-08-24T04:19:12.845Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "forum ESC 关闭弹窗",
+      "detail": "",
+      "at": "2026-08-24T04:19:13.148Z"
+    },
+    {
+      "area": "compete",
+      "severity": "ok",
+      "title": "AI 页展示 AgentOS",
+      "detail": "有差异化标签",
+      "at": "2026-08-24T04:19:14.128Z"
+    },
+    {
+      "area": "compete",
+      "severity": "ok",
+      "title": "AI 对话能调用工具",
+      "detail": "工作台 消息 邮箱 会议 通讯录 文档 云盘 日程 审批 1 项目 考勤 论坛 关系图谱 分析 AI 设置 AI 搜索或快捷操作 Ctrl K 演示用户 演 AI 助手 AgentOS 对标钉钉千问办公 · 填 Key 后文档/图谱/听记走真实模型 · AI 生成请审阅 内置 RAG（离线） · 默认 配置模型 千问办公对话即操作 AI 文档摘要 / 润色 ",
+      "at": "2026-08-24T04:19:16.937Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "关系图谱画布渲染",
+      "detail": "canvas=1 nodes=10032 viewport=500",
+      "at": "2026-08-24T04:19:20.931Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "会议有发起入口",
+      "detail": "立即发起会议",
+      "at": "2026-08-24T04:19:21.823Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "会中页控件可见",
+      "detail": "静音/离开",
+      "at": "2026-08-24T04:19:23.216Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "邮箱模块有收件箱呈现",
+      "detail": "",
+      "at": "2026-08-24T04:19:24.333Z"
+    }
+  ],
+  "scores": {
+    "aesthetic": 100,
+    "detail": 100,
+    "function": 100,
+    "compete": 100,
+    "system": 100
+  },
+  "counts": {
+    "p0": 0,
+    "p1": 0,
+    "ok": 23
+  }
+}

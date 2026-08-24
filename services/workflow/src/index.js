@@ -20,7 +20,7 @@ function advance(instanceId) {
   while (node) {
     if (node.type === 'end') {
       updateInstanceStatus(instanceId, 'approved', node.id);
-      publishEvent('workflow.completed', { instanceId, status: 'approved' }, 'workflow');
+      publishEvent('workflow.completed', { instanceId, status: 'approved', initiatorId: inst.initiator_id, actorId: inst.initiator_id }, 'workflow');
       return getInstance(instanceId);
     }
     if (node.type === 'approve' || node.type === 'cc') {
@@ -58,6 +58,18 @@ const { ctx } = createService({
   publicPaths: ['/health', '/debug'],
   setup(app, ctx) {
     seedBuiltinTemplates();
+    if (db.get("SELECT COUNT(*) c FROM flow_tasks WHERE action = 'pending' AND assignee_id = 'user-admin'").c === 0) {
+      const tpls = listTemplates();
+      const tpl = tpls.find((t) => t.name === '请假申请') || tpls[0];
+      if (tpl?.flow_def_id) {
+        const inst = createInstance({
+          flowDefId: tpl.flow_def_id,
+          formData: { days: 1, reason: '演示：周五请假半天' },
+          initiatorId: 'user-admin',
+        });
+        if (inst) advance(inst.id);
+      }
+    }
 
     // ---- 表单定义 CRUD ----
     app.post('/forms', asyncRoute(async (req, res) => {
@@ -141,14 +153,14 @@ const { ctx } = createService({
         return res.json(getInstance(task.instance_id));
       }
 
-      if (action === 'reject') {
+      if (action === 'reject' || action === 'rejected') {
         db.run('UPDATE flow_tasks SET action = ?, comment = ?, completed_at = ? WHERE id = ?', 'rejected', comment || '', Date.now(), task.id);
         updateInstanceStatus(task.instance_id, 'rejected', task.node_id);
-        publishEvent('workflow.rejected', { instanceId: task.instance_id, nodeId: task.node_id }, 'workflow');
+        publishEvent('workflow.rejected', { instanceId: task.instance_id, nodeId: task.node_id, initiatorId: inst.initiator_id, actorId: String(req.user.sub), actorName: req.user.display_name }, 'workflow');
         return res.json(getInstance(task.instance_id));
       }
 
-      if (action === 'approve') {
+      if (action === 'approve' || action === 'approved') {
         db.run('UPDATE flow_tasks SET action = ?, comment = ?, completed_at = ? WHERE id = ?', 'approved', comment || '', Date.now(), task.id);
         // 依次审批：若仍有后续审批人，激活下一个而不推进节点
         const node = inst.flow_def.nodes.find((n) => n.id === task.node_id);
@@ -156,6 +168,13 @@ const { ctx } = createService({
           return res.json(getInstance(task.instance_id));
         }
         advance(task.instance_id);
+        publishEvent('workflow.task_acted', {
+          instanceId: task.instance_id,
+          action: 'approved',
+          actorId: String(req.user.sub),
+          actorName: req.user.display_name || req.user.name,
+          initiatorId: inst.initiator_id,
+        }, 'workflow');
         return res.json(getInstance(task.instance_id));
       }
 

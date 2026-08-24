@@ -1,20 +1,12 @@
 import { test, expect } from '@playwright/test';
-
-async function login(page) {
-  await page.goto('/#/login');
-  await page.waitForSelector('input[placeholder="用户�?]');
-  await page.fill('input[placeholder="用户�?]', 'admin');
-  await page.fill('input[placeholder="密码"]', 'Admin@1234');
-  await page.click('button[type="submit"]');
-  await page.waitForFunction(() => window.__nexus?.user, null, { timeout: 15000 });
-}
+import { login } from './helpers.js';
 
 async function nav(page, key) {
   await page.evaluate((k) => window.__nexus.navigate(k), key);
   await page.waitForTimeout(600);
 }
 
-test('工作�?- 加载首页卡片', async ({ page }) => {
+test('工作台 - 加载首页卡片', async ({ page }) => {
   await login(page);
   await page.waitForTimeout(1000);
   await expect(page.locator('text=应用中心')).toBeVisible({ timeout: 5000 });
@@ -22,7 +14,7 @@ test('工作�?- 加载首页卡片', async ({ page }) => {
   await expect(page.locator('text=考勤打卡')).toBeVisible({ timeout: 5000 });
 });
 
-test('文档协作 - 导航与创�?, async ({ page }) => {
+test('文档协作 - 导航与创建', async ({ page }) => {
   await login(page);
   await nav(page, 'document');
   await page.waitForTimeout(2000);
@@ -54,19 +46,19 @@ test('云盘文件 - 导航', async ({ page }) => {
 
 test('项目管理 - 导航', async ({ page }) => {
   await login(page);
-  await nav(page, 'workbench');
+  await nav(page, 'project');
   await page.waitForTimeout(1000);
-  await expect(page.locator('text=应用中心').first()).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('text=项目管理').first()).toBeVisible({ timeout: 5000 });
 });
 
 test('考勤管理 - 打卡界面', async ({ page }) => {
   await login(page);
   await nav(page, 'attendance');
   await page.waitForTimeout(1000);
-  await expect(page.locator('text=一键打�?)).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('text=一键打卡')).toBeVisible({ timeout: 5000 });
 });
 
-test('通讯�?- 部门�?, async ({ page }) => {
+test('通讯录 - 部门树', async ({ page }) => {
   await login(page);
   await nav(page, 'contacts');
   await page.waitForTimeout(1000);
@@ -82,9 +74,9 @@ test('企业论坛 - 帖子列表', async ({ page }) => {
 
 test('数据分析 - 看板', async ({ page }) => {
   await login(page);
-  await nav(page, 'ai');
+  await nav(page, 'analytics');
   await page.waitForTimeout(1000);
-  await expect(page.locator('text=辅助决策')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('text=数据分析').first()).toBeVisible({ timeout: 5000 });
 });
 
 test('AI 助手 - 对话界面', async ({ page }) => {
@@ -102,7 +94,7 @@ test('设置 - 主题切换', async ({ page }) => {
   await page.waitForTimeout(500);
 });
 
-test('服务健康检�?- 所有服务状�?, async ({ page }) => {
+test('服务健康检查 - 所有服务状态', async ({ page }) => {
   const response = await page.request.get('http://localhost:8080/api/services/health');
   expect(response.ok()).toBeTruthy();
   const services = await response.json();

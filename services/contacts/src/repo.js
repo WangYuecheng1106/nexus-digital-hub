@@ -72,6 +72,7 @@ export function buildDeptTree(list) {
   for (const d of map.values()) {
     if (d.manager_id && empMap.has(d.manager_id)) d.manager_name = empMap.get(d.manager_id).name;
     d.headcount = allEmps.filter((e) => e.dept_id === d.id).length;
+    d.employee_count = d.headcount;
   }
   const sortRec = (nodes) => { nodes.sort((a, b) => a.sort_order - b.sort_order); for (const n of nodes) sortRec(n.children); };
   sortRec(roots);

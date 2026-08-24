@@ -21,11 +21,19 @@ export function setupRoutes(app) {
   }));
 
   app.get('/files', (req, res) => {
-    const parentId = req.query.parent_id || null;
+    const parentId = req.query.parent_id || req.query.parent || null;
     const space = req.query.space || 'personal';
     const rows = db.all('SELECT * FROM files WHERE parent_id IS ? AND space = ? AND owner_id = ? AND deleted = 0 ORDER BY type DESC, name ASC',
       parentId, space, String(req.user.sub));
     res.json(rows);
+  });
+
+  app.get('/files-all', (req, res) => {
+    const space = req.query.space || 'personal';
+    res.json(db.all(
+      "SELECT * FROM files WHERE space = ? AND owner_id = ? AND deleted = 0 AND type = 'file' ORDER BY updated_at DESC",
+      space, String(req.user.sub)
+    ));
   });
 
   app.get('/files/:id', (req, res) => {

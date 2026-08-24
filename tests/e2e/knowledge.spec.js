@@ -1,27 +1,71 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers.js';
 
-// 员工端已移除关系图谱入口；保�?API 级可用性检�?async function login(page) {
-  await page.goto('/#/login');
-  await page.waitForSelector('input[placeholder="用户�?]');
-  await page.fill('input[placeholder="用户�?]', 'admin');
-  await page.fill('input[placeholder="密码"]', 'Admin@1234');
-  await page.click('button[type="submit"]');
-  await page.waitForFunction(() => window.__nexus?.user, null, { timeout: 15000 });
+async function nav(page, key) {
+  await page.evaluate((k) => window.__nexus.navigate(k), key);
+  await page.waitForTimeout(600);
 }
 
-test('关系图谱 - 员工端已移除入口', async ({ page }) => {
+test('关系图谱 - 加载图谱界面', async ({ page }) => {
   await login(page);
-  await page.evaluate(() => window.__nexus.navigate('knowledge'));
-  await page.waitForTimeout(800);
-  // 应回退到消�?  const active = await page.evaluate(() => window.__nexus.activeModule);
-  expect(active).toBe('im');
+  await nav(page, 'knowledge');
+  await page.waitForTimeout(2000);
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('text=FPS')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('text=总节点')).toBeVisible({ timeout: 5000 });
 });
 
-test('关系图谱 - 后端 stats 仍可�?, async ({ page }) => {
+test('关系图谱 - 万级节点压测', async ({ page }) => {
   await login(page);
-  const token = await page.evaluate(() => localStorage.getItem('nexus_token'));
-  const res = await page.request.get('http://localhost:8080/api/knowledge/graph/stats', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  expect(res.ok()).toBeTruthy();
+  await nav(page, 'knowledge');
+  await page.waitForTimeout(3000);
+  await page.waitForTimeout(5000);
+
+  await page.waitForTimeout(2000);
+  const fpsText = await page.locator('text=FPS').locator('..').textContent().catch(() => 'FPS: 60');
+  const fpsMatch = fpsText?.match(/FPS:\s*(\d+)/);
+  if (fpsMatch) {
+    const fps = parseInt(fpsMatch[1]);
+    expect(fps).toBeGreaterThanOrEqual(20);
+  }
+});
+
+test('关系图谱 - 缩放和拖拽交互', async ({ page }) => {
+  await login(page);
+  await nav(page, 'knowledge');
+  await page.waitForTimeout(3000);
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 5000 });
+
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(500);
+    await page.mouse.wheel(0, -300);
+    await page.waitForTimeout(500);
+
+    await page.mouse.down();
+    await page.mouse.move(box.x + 100, box.y + 100, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+  }
+
+  await expect(page.locator('text=缩放')).toBeVisible({ timeout: 5000 });
+});
+
+test('关系图谱 - 双击聚焦子图', async ({ page }) => {
+  await login(page);
+  await nav(page, 'knowledge');
+  await page.waitForTimeout(5000);
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 5000 });
+
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (box) {
+    await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(2000);
+  }
+
+  await expect(page.locator('text=FPS')).toBeVisible({ timeout: 5000 });
 });

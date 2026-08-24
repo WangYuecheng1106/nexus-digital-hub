@@ -102,13 +102,13 @@ const { ctx } = createService({
     // ---- 文档 CRUD ----
     app.post('/documents', asyncRoute(async (req, res) => {
       requireFields(req.body, ['title', 'type']);
-      const { title, type, content, parentId, watermark, templateId } = req.body;
+      const { title, type, content, parentId, templateId } = req.body;
       let initContent = content;
       if (templateId) {
         const t = db.get('SELECT content FROM doc_templates WHERE id = ?', templateId);
         if (t) initContent = t.content;
       }
-      const doc = createDocument({ title, type, content: initContent, ownerId: String(req.user.sub), parentId, watermark });
+      const doc = createDocument({ title, type, content: initContent, ownerId: String(req.user.sub), parentId, watermark: 0 });
       publishEvent('document.created', { docId: doc.id, title }, 'document');
       res.status(201).json(doc);
     }));

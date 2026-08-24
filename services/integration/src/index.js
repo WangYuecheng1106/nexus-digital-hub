@@ -7,7 +7,7 @@ import {
 } from './repo.js';
 import {
   getMailConfig, saveMailConfig, listMail, markRead, sendMail,
-  listMcpTools, invokeMcpTool,
+  listMcpTools, invokeMcpTool, MAIL_PRESETS,
 } from './mail.js';
 
 const { ctx } = createService({
@@ -114,11 +114,12 @@ function setupRoutes(app) {
     res.status(201).json(sendMail(String(req.user.sub), req.body));
   }));
   app.post('/mail/:id/read', (req, res) => res.json(markRead(String(req.user.sub), req.params.id)));
-  app.get('/mail/mcp/tools', (req, res) => res.json(listMcpTools()));
+  app.get('/mail/mcp/tools', (req, res) => res.json(listMcpTools(String(req.user.sub))));
   app.post('/mail/mcp/invoke', asyncRoute(async (req, res) => {
     requireFields(req.body, ['name']);
-    res.json(invokeMcpTool(String(req.user.sub), req.body.name, req.body.arguments || {}));
+    res.json(await invokeMcpTool(String(req.user.sub), req.body.name, req.body.arguments || {}));
   }));
+  app.get('/mail/presets', (req, res) => res.json({ presets: MAIL_PRESETS }));
 
   // ---- OpenAPI 2.0 (Swagger) 文档 ----
   app.get('/openapi.json', (req, res) => res.json(buildSwagger()));

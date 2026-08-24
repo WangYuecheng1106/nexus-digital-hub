@@ -15,6 +15,13 @@ const { ctx } = createService({
   publicPaths: ['/health', '/debug'],
   setup(app, ctx) {
     setupRoutes(app);
+    if (!db.get("SELECT id FROM posts WHERE section = 'news' AND banned = 0")) {
+      createPost('user-admin', { section: 'news', title: '统一员工端已上线', content: '所有人使用同一工作台，没有管理员皮肤。' });
+    }
+    if (db.get('SELECT COUNT(*) c FROM posts').c < 3) {
+      createPost('user-zhangwei', { section: 'tech', title: '图谱适应画布', content: '万级节点请点「适应画布」，节点会出现在视野里。' });
+      createPost('user-lina', { section: 'recruit', title: '前端工程师内推', content: '研发部扩招，欢迎内推。' });
+    }
     ctx.addDebug(() => ({
       posts: db.get('SELECT COUNT(*) c FROM posts').c,
       comments: db.get('SELECT COUNT(*) c FROM comments').c,
@@ -27,7 +34,14 @@ subscribeEvents('forum', 8093, ['auth.user_registered']);
 
 function setupRoutes(app) {
   // ---- 板块 ----
-  app.get('/sections', (req, res) => res.json(SECTIONS.map((key, i) => ({ id: i, key, name: SECTION_LABELS[key], count: db.get('SELECT COUNT(*) c FROM posts WHERE section = ? AND banned = 0', key).c }))));
+  app.get('/sections', (req, res) => {
+    db.run(`UPDATE posts SET section = 'life' WHERE section NOT IN ('news','tech','recruit','trade','life')`);
+    const all = db.get('SELECT COUNT(*) c FROM posts WHERE banned = 0').c;
+    res.json([
+      { id: -1, key: 'all', name: '全部', count: all },
+      ...SECTIONS.map((key, i) => ({ id: i, key, name: SECTION_LABELS[key], count: db.get('SELECT COUNT(*) c FROM posts WHERE section = ? AND banned = 0', key).c })),
+    ]);
+  });
 
   // ---- 帖子 CRUD ----
   app.post('/posts', asyncRoute(async (req, res) => {

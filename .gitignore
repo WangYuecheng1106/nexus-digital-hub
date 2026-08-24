@@ -2,6 +2,12 @@ node_modules
 dist
 *.log
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
+data/login.json
+data/vite.err
+data/drive-storage/
 services/*/data
 .env
 .deploy-skill
@@ -12,3 +18,9 @@ build/
 client/release/
 client/public/downloads/*.exe
 client/public/downloads/*.blockmap
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  

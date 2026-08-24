@@ -3,6 +3,7 @@
 import { createService, asyncRoute, requireFields, subscribeEvents } from '@nexus/shared';
 import {
   db, APP_CATALOG, getWorkbench, setWorkbench, listApps, recordAppUse, recentApps,
+  createPersonalTodo, listPersonalTodos,
 } from './repo.js';
 
 const { ctx } = createService({
@@ -113,11 +114,26 @@ function setupRoutes(app) {
     res.json({ query: q, results: results.filter((r) => r.items.length > 0) });
   }));
 
-  // ---- 待办中心：聚合 workflow + project + calendar ----
+  // ---- 待办中心：聚合 workflow + project + calendar + 个人待办 ----
   app.get('/todos', asyncRoute(async (req, res) => {
     const auth = req.headers.authorization;
-    const todos = await aggregateTodos(auth);
-    res.json({ total: todos.length, items: todos });
+    const [todos, mine] = await Promise.all([
+      aggregateTodos(auth),
+      Promise.resolve(listPersonalTodos(String(req.user.sub))),
+    ]);
+    const personal = mine.map((t) => ({
+      id: t.id, source: t.source || 'manual', label: '我的待办',
+      title: t.title, status: t.status, created_at: t.created_at,
+    }));
+    const items = [...personal, ...todos];
+    res.json({ total: items.length, items });
+  }));
+
+  // 个人待办：如 IM 消息「转为待办」
+  app.post('/todos', asyncRoute(async (req, res) => {
+    requireFields(req.body, ['title']);
+    const todo = createPersonalTodo(String(req.user.sub), req.body);
+    res.status(201).json(todo);
   }));
 }
 

@@ -91,8 +91,8 @@ export function getDefaultProvider() {
     || db.get('SELECT * FROM ai_providers WHERE id = ?', 'local');
 }
 
-export function upsertProvider(id, body, { isAdmin }) {
-  if (!isAdmin) throw Object.assign(new Error('仅管理员可配置模型'), { status: 403 });
+export function upsertProvider(id, body, { isAdmin } = {}) {
+  void isAdmin;
   const preset = PROVIDER_PRESETS.find((p) => p.id === id);
   const existing = getProvider(id);
   if (!existing && !preset) throw Object.assign(new Error('未知提供商'), { status: 404 });
@@ -104,7 +104,9 @@ export function upsertProvider(id, body, { isAdmin }) {
   if (body.apiKey !== undefined && body.apiKey !== '' && !String(body.apiKey).includes('****')) {
     apiKey = body.apiKey;
   }
-  const enabled = body.enabled === undefined ? (existing?.enabled ?? 0) : (body.enabled ? 1 : 0);
+  const enabled = body.enabled === undefined
+    ? (apiKey && id !== 'local' ? 1 : (existing?.enabled ?? 0))
+    : (body.enabled ? 1 : 0);
   if (existing) {
     db.run(
       `UPDATE ai_providers SET name=?, base_url=?, api_key=?, model=?, enabled=?, updated_at=? WHERE id=?`,
@@ -120,12 +122,18 @@ export function upsertProvider(id, body, { isAdmin }) {
   if (body.isDefault) {
     db.run('UPDATE ai_providers SET is_default = 0');
     db.run('UPDATE ai_providers SET is_default = 1, enabled = 1 WHERE id = ?', id);
+  } else if (apiKey && id !== 'local') {
+    const def = getDefaultProvider();
+    if (!def || def.id === 'local') {
+      db.run('UPDATE ai_providers SET is_default = 0');
+      db.run('UPDATE ai_providers SET is_default = 1, enabled = 1 WHERE id = ?', id);
+    }
   }
   return listProviders().find((p) => p.id === id);
 }
 
-export function setDefaultProvider(id, { isAdmin }) {
-  if (!isAdmin) throw Object.assign(new Error('仅管理员可切换默认模型'), { status: 403 });
+export function setDefaultProvider(id, { isAdmin } = {}) {
+  void isAdmin;
   const p = getProvider(id);
   if (!p) throw Object.assign(new Error('提供商不存在'), { status: 404 });
   if (id !== 'local' && !p.api_key) throw Object.assign(new Error('请先填写 API Key'), { status: 400 });
@@ -172,6 +180,52 @@ export async function chatCompletion(provider, messages, { temperature = 0.7 } =
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function hasRemoteKey(provider) {
+  return !!(provider && provider.id !== 'local' && provider.api_key && provider.base_url);
+}
+
+export function aiStatus() {
+  const providers = listProviders();
+  const def = getDefaultProvider();
+  return {
+    hasRemote: providers.some((p) => p.hasKey && p.id !== 'local'),
+    defaultProvider: def?.id || 'local',
+    defaultName: def?.name || '内置 RAG',
+    providers,
+  };
+}
+
+const TASK_SYSTEM = {
+  summarize: '你是企业文档助手（对标钉钉 AI 文档）。用中文输出简洁摘要，条目化，末尾注明「AI 生成，请审阅」。',
+  polish: '你是文档润色助手。保持原意，使语句更清晰专业，直接输出润色后的全文，不要解释。',
+  continue: '根据已有正文续写 2 至 4 段，风格一致，直接输出续写内容。',
+  organize: '你是组织知识图谱助手。根据「姓名|部门|职位」列表，用简洁中文说明产品线→大部门→小组结构，每部门一句。',
+  transcribe: '把会议笔记整理成：议题、决议、待办三条。中文，末尾注明「AI 生成，请审阅」。',
+  chat: '你是 Nexus 企业协作助手（对标钉钉千问办公）。回答简洁、可执行。注明「AI 生成，请审阅」。',
+};
+
+export async function completeTask(provider, { task = 'chat', text = '', instruction = '' }) {
+  let p = provider;
+  if (!hasRemoteKey(p)) {
+    p = db.get(`SELECT * FROM ai_providers WHERE id != 'local' AND api_key != '' AND enabled = 1 LIMIT 1`)
+      || db.get(`SELECT * FROM ai_providers WHERE id != 'local' AND api_key != '' LIMIT 1`);
+  }
+  if (!hasRemoteKey(p)) {
+    const err = Object.assign(new Error('请先在设置 → AI 模型中填写对应厂商的 API Key'), { status: 400, needKey: true });
+    throw err;
+  }
+  const system = TASK_SYSTEM[task] || TASK_SYSTEM.chat;
+  const user = [instruction, text].filter(Boolean).join('\n\n');
+  const remote = await chatCompletion(p, [
+    { role: 'system', content: system },
+    { role: 'user', content: user || '（空）' },
+  ], { temperature: task === 'organize' ? 0.3 : 0.6 });
+  if (!remote?.reply) {
+    throw Object.assign(new Error('模型无返回，请检查 Key 与模型名'), { status: 502 });
+  }
+  return { text: remote.reply, provider: remote.provider, model: remote.model, usage: remote.usage, aiGenerated: true };
 }
 
 export { snowflake };

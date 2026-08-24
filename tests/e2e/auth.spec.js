@@ -1,15 +1,17 @@
 import { test, expect } from '@playwright/test';
+import { login } from './helpers.js';
 
-async function login(page, username = 'admin', password = 'Admin@1234') {
-  await page.goto('/#/login');
-  await page.waitForSelector('input[placeholder="用户�?]', { timeout: 10000 });
-  await page.fill('input[placeholder="用户�?]', username);
-  await page.fill('input[placeholder="密码"]', password);
-  await page.click('button[type="submit"]');
-  await page.waitForFunction(() => window.__nexus?.user, null, { timeout: 15000 });
+async function ensureLoginForm(page) {
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 45000 });
+  const pwd = page.locator('input[placeholder="密码"], input[type="password"]');
+  try {
+    await pwd.first().waitFor({ state: 'visible', timeout: 4000 });
+  } catch {
+    await page.getByRole('button', { name: /进入工作台|在线体验/ }).first().click();
+    await pwd.first().waitFor({ state: 'visible', timeout: 10000 });
+  }
 }
 
-// 登录流程端到端测试：输入凭证 �?断言 JWT 签发成功
 test('登录流程 - 管理员登录获取JWT', async ({ page }) => {
   const errors = [];
   page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
@@ -21,21 +23,20 @@ test('登录流程 - 管理员登录获取JWT', async ({ page }) => {
   expect(nexus).toBeTruthy();
   expect(nexus.user).toBeTruthy();
   expect(nexus.user.username).toBe('admin');
-  expect(nexus.clientMode).toBe('employee');
+  expect(nexus.user.roles).toContain('admin');
 
   expect(errors.filter(e => !e.includes('favicon') && !e.includes('502'))).toHaveLength(0);
 });
 
-test('登录流程 - 普通员工登�?, async ({ page }) => {
+test('登录流程 - 普通员工登录', async ({ page }) => {
   await login(page, 'liuyang', 'Nexus@1234');
   const nexus = await page.evaluate(() => window.__nexus);
   expect(nexus.user.roles).toContain('employee');
 });
 
 test('登录失败 - 错误密码锁定', async ({ page }) => {
-  await page.goto('/#/login');
-  await page.waitForSelector('input[placeholder="用户�?]');
-  await page.fill('input[placeholder="用户�?]', 'admin');
+  await ensureLoginForm(page);
+  await page.fill('input[placeholder="用户名"]', 'admin');
   await page.fill('input[placeholder="密码"]', 'wrongpassword');
   await page.click('button[type="submit"]');
   await page.waitForSelector('text=用户名或密码错误', { timeout: 5000 });

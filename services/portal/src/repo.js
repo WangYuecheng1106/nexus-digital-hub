@@ -10,12 +10,14 @@ migrate(db, [
   ['app_usage', `CREATE TABLE app_usage (
     user_id TEXT, app_id TEXT, last_used INTEGER, use_count INTEGER DEFAULT 1,
     PRIMARY KEY (user_id, app_id))`],
+  ['personal_todos', `CREATE TABLE personal_todos (
+    id TEXT PRIMARY KEY, user_id TEXT, title TEXT,
+    source TEXT, source_id TEXT, status TEXT DEFAULT 'pending', created_at INTEGER)`],
 ]);
 
 // 全部 19 个服务作为应用中心条目，按类别分组
 export const APP_CATALOG = [
   { id: 'auth', name: '身份认证', port: 8081, category: '基础', icon: 'auth' },
-  { id: 'user', name: '用户中心', port: 8082, category: '基础', icon: 'user' },
   { id: 'im', name: '即时通讯', port: 8083, category: '通讯', icon: 'chat' },
   { id: 'meeting', name: '视频会议', port: 8084, category: '通讯', icon: 'meeting' },
   { id: 'document', name: '文档协作', port: 8085, category: '协作', icon: 'doc' },
@@ -71,4 +73,18 @@ export function recentApps(userId, limit = 8) {
   const rows = db.all('SELECT app_id, last_used FROM app_usage WHERE user_id = ? ORDER BY last_used DESC LIMIT ?', userId, limit);
   const map = Object.fromEntries(APP_CATALOG.map((a) => [a.id, a]));
   return rows.map((r) => ({ ...map[r.app_id], lastUsed: r.last_used })).filter(Boolean);
+}
+
+// ---- 个人待办（如 IM 消息转待办）----
+export function createPersonalTodo(userId, { title, source, source_id }) {
+  const id = snowflake();
+  db.run(
+    'INSERT INTO personal_todos (id, user_id, title, source, source_id, status, created_at) VALUES (?,?,?,?,?,?,?)',
+    id, userId, String(title || '待办事项').slice(0, 120), source || 'manual', source_id || null, 'pending', Date.now(),
+  );
+  return db.get('SELECT * FROM personal_todos WHERE id = ?', id);
+}
+
+export function listPersonalTodos(userId) {
+  return db.all("SELECT * FROM personal_todos WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 50", userId);
 }

@@ -24,6 +24,7 @@ migrate(db, [
   ['post_tags', `CREATE TABLE post_tags (post_id TEXT, tag_id TEXT, PRIMARY KEY (post_id, tag_id))`],
   ['reports', `CREATE TABLE reports (
     id TEXT PRIMARY KEY, post_id TEXT, reporter_id TEXT, reason TEXT, status TEXT DEFAULT 'open', created_at INTEGER)`],
+  ['posts_media', `ALTER TABLE posts ADD COLUMN media TEXT DEFAULT '[]'`],
 ]);
 
 // 敏感词过滤：返回 { text, hit } —— 命中则替换并标记
@@ -45,13 +46,14 @@ export function extractHashtags(content) {
   return [...set];
 }
 
-export function createPost(authorId, { section, title, content, type = 'article', tags = [] }) {
+export function createPost(authorId, { section, title, content, type = 'article', tags = [], media = [] }) {
   const id = snowflake();
   const now = Date.now();
   const { text } = filterSensitive(content);
+  const mediaJson = JSON.stringify(Array.isArray(media) ? media.slice(0, 9) : []);
   db.tx(() => {
-    db.run('INSERT INTO posts (id, author_id, section, title, content, type, created_at) VALUES (?,?,?,?,?,?,?)',
-      id, authorId, section, title, text, type, now);
+    db.run('INSERT INTO posts (id, author_id, section, title, content, type, media, created_at) VALUES (?,?,?,?,?,?,?,?)',
+      id, authorId, section, title, text, type, mediaJson, now);
     for (const name of [...extractHashtags(content), ...tags]) {
       db.run('INSERT OR IGNORE INTO hashtags (id, name) VALUES (?, ?)', snowflake(), name);
       const t = db.get('SELECT id FROM hashtags WHERE name = ?', name);
@@ -63,7 +65,10 @@ export function createPost(authorId, { section, title, content, type = 'article'
 
 export function getPost(id) {
   const p = db.get('SELECT * FROM posts WHERE id = ?', id);
-  if (p) p.tags = db.all('SELECT h.name FROM post_tags pt JOIN hashtags h ON h.id = pt.tag_id WHERE pt.post_id = ?', id).map((t) => t.name);
+  if (p) {
+    p.tags = db.all('SELECT h.name FROM post_tags pt JOIN hashtags h ON h.id = pt.tag_id WHERE pt.post_id = ?', id).map((t) => t.name);
+    try { p.media = JSON.parse(p.media || '[]'); } catch { p.media = []; }
+  }
   return p;
 }
 
@@ -71,7 +76,11 @@ export function listPosts({ section, where = '', params = [], order = 'created_a
   let sql = 'SELECT * FROM posts WHERE banned = 0';
   if (section) sql += ' AND section = ?';
   sql += ` ${where} ORDER BY ${order} LIMIT ?`;
-  return db.all(sql, ...(section ? [section] : []), ...params, limit);
+  const rows = db.all(sql, ...(section ? [section] : []), ...params, limit);
+  return rows.map((p) => {
+    try { p.media = JSON.parse(p.media || '[]'); } catch { p.media = []; }
+    return p;
+  });
 }
 
 // 热榜：综合点赞与浏览量按时间衰减排序，模拟 Hacker News 排名

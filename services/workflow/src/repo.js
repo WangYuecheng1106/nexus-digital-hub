@@ -139,15 +139,21 @@ function evalCondition(cond, formData) {
 // 避免三人同时收到任务却只能按顺序处理的混乱；会签/或签则全部并行激活。
 export function createTasksForNode(instanceId, node) {
   const now = Date.now();
-  const assignees = node.approvers || [];
+  const inst = db.get('SELECT initiator_id FROM flow_instances WHERE id = ?', instanceId);
+  const resolve = (a) => {
+    const id = String(a || '');
+    if (id.startsWith('user-')) return id;
+    return inst?.initiator_id || 'user-admin';
+  };
+  const assignees = (node.approvers || []).map(resolve);
   if (node.method === 'sequential' && assignees.length > 1) {
     db.run('INSERT INTO flow_tasks (id, instance_id, node_id, assignee_id, action, created_at) VALUES (?,?,?,?,?,?)',
-      snowflake(), instanceId, node.id, String(assignees[0]), 'pending', now);
+      snowflake(), instanceId, node.id, assignees[0], 'pending', now);
     return;
   }
   for (const uid of assignees) {
     db.run('INSERT INTO flow_tasks (id, instance_id, node_id, assignee_id, action, created_at) VALUES (?,?,?,?,?,?)',
-      snowflake(), instanceId, node.id, String(uid), 'pending', now);
+      snowflake(), instanceId, node.id, uid, 'pending', now);
   }
 }
 
@@ -232,5 +238,8 @@ function builtins() {
     { name: '合同审批', category: 'contract', form: { name: '合同表单', code: 'contract_form', fields: [{ key: 'party', label: '对方', type: 'text', required: true }, { key: 'amount', label: '金额', type: 'number', required: true }] }, flow: { name: '合同流程', code: 'contract_flow', nodes: [{ id: 'n1', type: 'start', nextId: 'n2' }, { id: 'n2', type: 'approve', approvers: ['legal', 'manager', 'gm'], method: 'sequential', nextId: 'n3' }, { id: 'n3', type: 'end' }] } },
     { name: '加班申请', category: 'overtime', form: { name: '加班表单', code: 'ot_form', fields: [{ key: 'hours', label: '时长', type: 'number', required: true }] }, flow: { name: '加班流程', code: 'ot_flow', nodes: [{ id: 'n1', type: 'start', nextId: 'n2' }, { id: 'n2', type: 'approve', approvers: ['supervisor'], method: 'or-sign', nextId: 'n3' }, { id: 'n3', type: 'end' }] } },
     { name: '离职申请', category: 'resignation', form: { name: '离职表单', code: 'resign_form', fields: [{ key: 'reason', label: '原因', type: 'text', required: true }, { key: 'lastDay', label: '最后工作日', type: 'date', required: true }] }, flow: { name: '离职流程', code: 'resign_flow', nodes: [{ id: 'n1', type: 'start', nextId: 'n2' }, { id: 'n2', type: 'approve', approvers: ['manager', 'hr', 'gm'], method: 'sequential', nextId: 'n3' }, { id: 'n3', type: 'end' }] } },
+    { name: '用章申请', category: 'seal', form: { name: '用章表单', code: 'seal_form', fields: [{ key: 'file', label: '文件名称', type: 'text', required: true }, { key: 'copies', label: '份数', type: 'number', required: true }] }, flow: { name: '用章流程', code: 'seal_flow', nodes: [{ id: 'n1', type: 'start', nextId: 'n2' }, { id: 'n2', type: 'approve', approvers: ['legal'], method: 'sequential', nextId: 'n3' }, { id: 'n3', type: 'end' }] } },
+    { name: '物品领用', category: 'supply', form: { name: '领用表单', code: 'supply_form', fields: [{ key: 'item', label: '物品', type: 'text', required: true }, { key: 'qty', label: '数量', type: 'number', required: true }] }, flow: { name: '领用流程', code: 'supply_flow', nodes: [{ id: 'n1', type: 'start', nextId: 'n2' }, { id: 'n2', type: 'approve', approvers: ['admin'], method: 'or-sign', nextId: 'n3' }, { id: 'n3', type: 'end' }] } },
+    { name: '招聘需求', category: 'hiring', form: { name: '招聘表单', code: 'hire_form', fields: [{ key: 'role', label: '岗位', type: 'text', required: true }, { key: 'headcount', label: '人数', type: 'number', required: true }] }, flow: { name: '招聘流程', code: 'hire_flow', nodes: [{ id: 'n1', type: 'start', nextId: 'n2' }, { id: 'n2', type: 'approve', approvers: ['hr', 'gm'], method: 'sequential', nextId: 'n3' }, { id: 'n3', type: 'end' }] } },
   ];
 }

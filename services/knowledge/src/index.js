@@ -128,11 +128,40 @@ const { ctx } = createService({
       }
       if (!employees?.length) throw badRequest('无法获取人员列表，请传入 employees 或确保通讯录服务可用');
       const result = organizePeople(employees, {
-        projectName: req.body?.projectName || 'Nexus 项目',
+        projectName: req.body?.projectName || 'Nexus 产品线',
         clearPeople: !!req.body?.clearPeople,
       });
+      let aiNote = '';
+      try {
+        const ar = await fetch('http://127.0.0.1:8096/status', {
+          headers: { Authorization: req.headers.authorization || '' },
+        });
+        const st = ar.ok ? await ar.json() : {};
+        if (st.hasRemote) {
+          const cr = await fetch('http://127.0.0.1:8096/complete', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', Authorization: req.headers.authorization || '' },
+            body: JSON.stringify({
+              task: 'organize',
+              text: employees.slice(0, 48).map((e) => `${e.name || e.display_name}|${e.dept || e.dept_name || ''}|${e.position || e.title || ''}`).join('\n'),
+            }),
+          });
+          const cd = await cr.json().catch(() => ({}));
+          if (cr.ok && cd.text) {
+            aiNote = cd.text;
+            result.model = cd.model;
+            result.provider = cd.provider;
+          }
+        }
+      } catch { /* 无 Key 时仅规则整理 */ }
       publishEvent('knowledge.people_organized', result, 'knowledge');
-      res.status(201).json({ ...result, aiGenerated: true });
+      res.status(201).json({
+        ...result,
+        aiGenerated: true,
+        usedModel: !!aiNote,
+        aiNote,
+        summary: aiNote ? `${result.summary}\n\n模型说明：${aiNote.slice(0, 400)}` : `${result.summary}（规则整理；在设置填写 API Key 后可用模型优化说明）`,
+      });
     }));
 
     // ---- 调试状态：供 /debug/state 聚合，Playwright 可读取图谱规模 ----

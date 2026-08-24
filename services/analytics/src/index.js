@@ -36,7 +36,18 @@ function setupRoutes(app) {
     res.status(201).json({ id });
   }));
 
-  // ---- 预设报表 ----
+  // ---- 个人+团队总览（分析页一次拉取） ----
+  app.get('/overview', (req, res) => {
+    const days = parseInt(req.query.days) || 7;
+    res.json({
+      days,
+      activity: presetReport('activity', { days }),
+      meetings: presetReport('meetings', { days }),
+      approvals: presetReport('approvals', { days }),
+      attendance: presetReport('attendance', { days }),
+      collaboration: presetReport('collaboration', { days }),
+    });
+  });
   app.get('/reports/preset/:type', (req, res) => {
     const valid = ['activity', 'meetings', 'approvals', 'attendance', 'collaboration'];
     if (!valid.includes(req.params.type)) throw notFound('预设报表不存在');
