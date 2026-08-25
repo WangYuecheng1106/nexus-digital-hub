@@ -1,0 +1,150 @@
+{
+  "generatedAt": "2026-08-13T03:19:14.391Z",
+  "uiTars": {
+    "source": "E:\\UI-TARS-desktop-0.3.0\\UI-TARS-desktop-0.3.0",
+    "sourceExists": true,
+    "cli": "npx @ui-tars/cli start",
+    "needs": [
+      "UITARS_BASE_URL",
+      "UITARS_API_KEY",
+      "UITARS_MODEL"
+    ],
+    "envReady": false,
+    "instruction": "你正在操作本机已登录的钉钉桌面客户端。请按顺序走完每一个核心功能，每一步先截图再点击，不要发送真实 DING/电话，不要改企业设置。\n\n走查清单（对标企业协作操作系统，不是聊天软件）：\n1. 消息：打开一个会话；悬停消息看快捷操作；右键菜单是否有 回复/复制/转发/钉选/转待办/转日程/DING；看已读未读；看语音气泡波形。\n2. 工作台：应用九宫格、待办红点、OA 审批入口是否一跳到达。\n3. 通讯录：组织树人数是否与右侧人员一致；搜索人后能否直接发消息/加好友。\n4. 日历：月/周/日视图；从消息转日程后是否出现在日历。\n5. 会议：发起会议、加入、屏幕共享入口、会中字幕/听记入口。\n6. 审批：请假/报销模板数量；发起后工作通知是否进消息。\n7. 文档/钉盘：打开一篇文档，看协同光标或评论。\n8. 考勤：一键打卡、迟到统计文案是否中文。\n9. AI：千问办公 / AI 搜问 / 钉钉 ONE / 悟空（若有）。对「提醒我下午提交周报」看它是执行还是只聊天。\n10. 邮箱：打开一封邮件正文，而不是停在「请选择」。\n\n每完成一个模块用一句话记录：钉钉做到了什么、交互细节是什么。全部完成后汇总「Nexus 必须抄的 20 个细节」。"
+  },
+  "dingTalk": {
+    "found": [
+      "C:\\Program Files (x86)\\DingDing\\DingtalkLauncher.exe"
+    ],
+    "roaming": "C:\\Users\\王跃程\\AppData\\Roaming\\DingTalk",
+    "wukong": true,
+    "mcp": {
+      "http_port": 8440,
+      "pid": 22288
+    },
+    "running": true,
+    "tasklist": "\"DingTalk.exe\",\"22288\",\"Console\",\"1\",\"641,340 K\"\r\n\"DingTalk.exe\",\"7080\",\"Console\",\"1\",\"183,520 K\"\r\n\"DingTalk.exe\",\"25676\",\"Console\",\"1\",\"53,872 K\"\r\n\"DingTalk.exe\",\"21836\",\"Console\",\"1\",\"39,616 K\"\r\n\"Di"
+  },
+  "modules": [
+    {
+      "id": "im",
+      "name": "消息",
+      "dingTalk": [
+        "会话列表",
+        "已读回执",
+        "DING 电话/短信",
+        "钉选置顶",
+        "右键转待办/日程",
+        "语音波形气泡",
+        "@高亮已读",
+        "工作通知进会话"
+      ],
+      "nexusGap": "附件/图片死按钮；无 DING；无钉选；转发只是复制"
+    },
+    {
+      "id": "workbench",
+      "name": "工作台",
+      "dingTalk": [
+        "应用九宫格",
+        "待办聚合",
+        "OA 一跳",
+        "红点来自全应用"
+      ],
+      "nexusGap": "偶发「加载中」空壳；侧栏无文字；17/18 服务误报 user=down"
+    },
+    {
+      "id": "oa",
+      "name": "审批",
+      "dingTalk": [
+        "拖拽表单",
+        "条件分支",
+        "30+ 模板",
+        "审批进工作通知",
+        "抄送我的"
+      ],
+      "nexusGap": "待办空态无模板引导；无抄送/草稿 Tab"
+    },
+    {
+      "id": "calendar",
+      "name": "日程",
+      "dingTalk": [
+        "月周三日视图",
+        "消息转日程",
+        "会议室预定"
+      ],
+      "nexusGap": "仅月视图空格子；无周/日；与会议未互写"
+    },
+    {
+      "id": "meeting",
+      "name": "会议",
+      "dingTalk": [
+        "预约+立即",
+        "微信入会",
+        "AI 听记",
+        "字幕翻译"
+      ],
+      "nexusGap": "仅一张发起卡片；无会中 UI/听记"
+    },
+    {
+      "id": "doc",
+      "name": "文档/钉盘",
+      "dingTalk": [
+        "协同光标",
+        "评论",
+        "知识库",
+        "从消息转文档"
+      ],
+      "nexusGap": "两份重名 demo；云盘空态无建文件夹；文档年显示 2028"
+    },
+    {
+      "id": "contacts",
+      "name": "通讯录",
+      "dingTalk": [
+        "组织树人数准",
+        "点人头像发消息"
+      ],
+      "nexusGap": "组织树重复；人数 (0)；职位 ?????"
+    },
+    {
+      "id": "attendance",
+      "name": "考勤",
+      "dingTalk": [
+        "一键打卡",
+        "迟到早退中文",
+        "未打卡响铃"
+      ],
+      "nexusGap": "类型列英文 check_in/gps"
+    },
+    {
+      "id": "ai",
+      "name": "Agent / 悟空",
+      "dingTalk": [
+        "DingTalk CLI 原子能力",
+        "对话即执行",
+        "权限交集",
+        "ONE 事找人"
+      ],
+      "nexusGap": "标签叫 AgentOS，指令「提醒我」被 RAG 答成审批文档；来源 [object Object]"
+    },
+    {
+      "id": "mail",
+      "name": "邮箱",
+      "dingTalk": [
+        "邮件进聊天",
+        "AI 写信",
+        "点开即正文"
+      ],
+      "nexusGap": "列表有信，默认仍「选择一封邮件」"
+    },
+    {
+      "id": "search",
+      "name": "搜问",
+      "dingTalk": [
+        "搜人/事/知识/进展",
+        "Ctrl+K 级全局"
+      ],
+      "nexusGap": "命令面板能跳模块，不能搜消息正文/文件内容"
+    }
+  ],
+  "note": "钉钉进程在跑，可把 instruction 贴进 UI-TARS 桌面端开始 Computer Use。"
+}

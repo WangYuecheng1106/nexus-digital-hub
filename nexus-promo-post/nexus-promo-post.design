@@ -1,0 +1,27 @@
+{
+  "data": [
+    {
+      "id": "image-001",
+      "title": "Nexus 关系图谱素雅宣传贴",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1782999780000,
+      "canvasData": {
+        "x": 120,
+        "y": 12,
+        "naturalSize": {
+          "width": 1920,
+          "height": 1920
+        }
+      },
+      "devMetadata": {
+        "imageSrc": "assets/nexus-promo-elegant.jpg"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "freeSize",
+    "projectName": "Nexus 关系图谱宣传贴"
+  }
+}

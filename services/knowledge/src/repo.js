@@ -180,6 +180,25 @@ export function getStats() {
   return { totalNodes, totalEdges };
 }
 
+// 组织类数据（部门/员工/产品线）带 label + properties，供组织树视图使用
+export function queryOrgData() {
+  const nodes = db.all(
+    `SELECT id, type, name, label, x, y, size, properties FROM nodes
+     WHERE type IN ('dept','employee','product_line','team') ORDER BY type, name`
+  ).map(parseNode);
+  const ids = nodes.map((n) => n.id);
+  let edges = [];
+  if (ids.length) {
+    const ph = ids.map(() => '?').join(',');
+    edges = db.all(
+      `SELECT id, source_id, target_id, type, weight FROM edges
+       WHERE source_id IN (${ph}) AND target_id IN (${ph})`,
+      ...ids, ...ids
+    );
+  }
+  return { nodes, edges };
+}
+
 // 批量写入布局坐标：事务包裹 50 次 UPDATE 避免逐条提交的 fsync 开销
 export function saveLayout(positions) {
   db.tx(() => {
@@ -198,6 +217,259 @@ export function clearGraph() {
   });
 }
 
+/**
+ * 钉钉通讯录 → 图谱：部门树 + 员工。
+ * depts: [{id, name, parent_id}], employees: [{userid, name, dept_id, title, phone, email}]
+ * 布局：部门按层级横排（L=深×列宽），员工围绕所在部门做小圆环 —— 关系图/组织树两种视图都自然。
+ * 返回统计。
+ */
+export function importOrg({ depts = [], employees = [], clear = true }) {
+  db.tx(() => {
+    if (clear) {
+      db.run('DELETE FROM edges');
+      db.run('DELETE FROM layout_cache');
+      db.run('DELETE FROM nodes');
+    }
+    const now = Date.now();
+    const byId = new Map();
+    let deptCount = 0;
+
+    // 1. 算每层的部门列表（按 parent 指针分层）
+    const roots = depts.filter((d) => !d.parent_id || !depts.find((x) => x.id === d.parent_id));
+    const rootsSafe = roots.length ? roots : (depts.slice(0, 1));
+    const depthOf = new Map();
+    const byDepth = new Map();
+    const assignDepth = (d, depth) => {
+      depthOf.set(String(d.id), depth);
+      if (!byDepth.has(depth)) byDepth.set(depth, []);
+      byDepth.get(depth).push(d);
+      for (const c of depts.filter((x) => String(x.parent_id) === String(d.id))) {
+        assignDepth(c, depth + 1);
+      }
+    };
+    for (const r of rootsSafe) assignDepth(r, 0);
+    // 孤立部门（parent 指向不存在/环）兜底放在第 1 层
+    for (const d of depts) {
+      if (!depthOf.has(String(d.id))) {
+        assignDepth(d, 1);
+      }
+    }
+
+    const maxDepth = Math.max(...byDepth.keys());
+    const COL_W = 340;
+    const ROW_H = 240;
+    const placeDept = (d, depth, colIndex, siblings) => {
+      const x = (depth + 0.5) * COL_W;
+      const cy = (colIndex + 0.5 - siblings / 2) * ROW_H;
+      const dNode = createNode({
+        type: 'dept',
+        name: d.name,
+        label: d.name,
+        properties: { kind: '部门', dingtalkId: String(d.id) },
+        x,
+        y: cy,
+        size: 3,
+      });
+      byId.set(String(d.id), dNode);
+      deptCount++;
+      return dNode;
+    };
+
+    // 2. 逐层摆部门：每层内按父部门聚合
+    for (const [depth] of [...byDepth.entries()].sort((a, b) => a[0] - b[0])) {
+      const layer = byDepth.get(depth);
+      // 父部门分组，组内兄弟按父角度展开
+      const byParent = new Map();
+      for (const d of layer) {
+        const p = String(d.parent_id || d.id);
+        if (!byParent.has(p)) byParent.set(p, []);
+        byParent.get(p).push(d);
+      }
+      let col = 0;
+      for (const [, siblings] of byParent) {
+        const sorted = siblings.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id), 'zh'));
+        sorted.forEach((d, i) => {
+          const node = placeDept(d, depth, col, layer.length);
+          const pId = String(d.parent_id);
+          const parent = byId.get(pId);
+          if (parent && parent.id !== node.id) {
+            createEdge({ sourceId: parent.id, targetId: node.id, type: 'contains', weight: 1.5 });
+          }
+          col++;
+        });
+      }
+    }
+    // 部门间 contains 边（若上面因顺序尚未建立，这里补全：凡 depts 中 parent 存在即建边）
+    for (const d of depts) {
+      const from = byId.get(String(d.parent_id));
+      const to = byId.get(String(d.id));
+      if (from && to && from.id !== to.id) {
+        createEdge({ sourceId: from.id, targetId: to.id, type: 'contains', weight: 1.5 });
+      }
+    }
+
+    // 3. 员工：围绕部门，按部门内角度做小圆环
+    const R_EMP = 140;
+    const groupByDept = new Map();
+    for (const e of employees) {
+      const key = String(e.dept_id || '');
+      if (!groupByDept.has(key)) groupByDept.set(key, []);
+      groupByDept.get(key).push(e);
+    }
+    let empCount = 0;
+    for (const [deptId, members] of groupByDept) {
+      const deptNode = byId.get(deptId);
+      if (!deptNode) continue;
+      members.forEach((e, i) => {
+        const angle = (2 * Math.PI * i) / Math.max(1, members.length);
+        const empNode = createNode({
+          type: 'employee',
+          name: e.name,
+          label: e.name,
+          properties: {
+            kind: '员工',
+            userId: e.userid || e.userId || '',
+            dingtalkId: String(e.userid || e.userId || ''),
+            title: e.title || e.position || '',
+            phone: e.phone || '',
+            email: e.email || '',
+            dept: deptNode.label,
+          },
+          x: deptNode.x + Math.cos(angle) * R_EMP,
+          y: deptNode.y + Math.sin(angle) * R_EMP,
+          size: 1.3,
+        });
+        createEdge({ sourceId: deptNode.id, targetId: empNode.id, type: 'belongs_to', weight: 1 });
+        empCount++;
+      });
+    }
+
+    return { departments: deptCount, employees: empCount, totalNodes: deptCount + empCount };
+  });
+}
+
 function parseNode(r) {
   return { ...r, properties: r.properties ? JSON.parse(r.properties) : {} };
+}
+
+// ---------- 继任风险分析 ----------
+// 关键人风险（HR/OD 刚需）：每个部门按「负责人是否存在 + 是否有副手候选」打三态。
+//   HIGH   关键岗位空缺：本部门无人带管理头衔（总监/经理/负责人/HRBP/组长 等）
+//   MEDIUM 继任断层：有负责人但无人可继任（本部门 + 直接子部门均无其他管理头衔）
+//   LOW    继任梯队健全：有负责人 + 至少 1 名候选副手
+// 管理头衔按 rank 排序：C 级/总裁 > 总监/首席 > 经理/主管/负责人/组长/HRBP
+const MGR_PATTERNS = [
+  { re: /(总裁|首席执行官|CEO|CTO|COO|CFO|CIO|CRO|副总裁|VP)/i, rank: 5 },
+  { re: /(首席|chief)/i, rank: 4 },
+  { re: /(总监|director)/i, rank: 4 },
+  { re: /(负责人|head|leader|组长)/i, rank: 3 },
+  { re: /(部长|经理|manager|主管|主任|hrbp|hrbp)/i, rank: 3 },
+];
+function managerOf(title) {
+  if (!title) return null;
+  let best = null;
+  for (const p of MGR_PATTERNS) {
+    const m = p.re.exec(title);
+    if (m && (!best || p.rank > best.rank)) best = { rank: p.rank, label: m[0] };
+  }
+  return best;
+}
+
+export function analyzeSuccession() {
+  const nodes = db.all('SELECT id, type, name, label, x, y, size, properties FROM nodes').map(parseNode);
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const edges = db.all('SELECT id, source_id, target_id, type FROM edges');
+
+  const depts = nodes.filter((n) => n.type === 'dept');
+
+  // 部门 → 直接子部门 / 直接员工（去重，防止重复边导致计数翻倍）
+  const childDeptsOf = new Map();
+  const employeesOf = new Map();
+  const seenChild = new Set();
+  const seenEmp = new Set();
+  for (const e of edges) {
+    const src = nodeById.get(e.source_id);
+    const tgt = nodeById.get(e.target_id);
+    if (!src || !tgt) continue;
+    if (src.type === 'dept' && tgt.type === 'dept' && e.type === 'contains') {
+      const key = `${src.id}|${tgt.id}`;
+      if (seenChild.has(key)) continue;
+      seenChild.add(key);
+      if (!childDeptsOf.has(src.id)) childDeptsOf.set(src.id, []);
+      childDeptsOf.get(src.id).push(tgt.id);
+    } else if (src.type === 'dept' && tgt.type === 'employee' && e.type === 'belongs_to') {
+      const key = `${src.id}|${tgt.id}`;
+      if (seenEmp.has(key)) continue;
+      seenEmp.add(key);
+      if (!employeesOf.has(src.id)) employeesOf.set(src.id, []);
+      employeesOf.get(src.id).push(tgt);
+    }
+  }
+
+  // 递归 headcount：包含所有子部门员工
+  const headcountOf = (deptId, seen = new Set()) => {
+    if (seen.has(deptId)) return 0;
+    seen.add(deptId);
+    let c = (employeesOf.get(deptId) || []).length;
+    for (const child of (childDeptsOf.get(deptId) || [])) c += headcountOf(child, seen);
+    return c;
+  };
+
+  const result = [];
+  for (const d of depts) {
+    const members = employeesOf.get(d.id) || [];
+    const childDeptIds = childDeptsOf.get(d.id) || [];
+    // 候选副手池：本部门 + 直接子部门的员工
+    const successorsPool = [...members];
+    for (const cid of childDeptIds) {
+      for (const e of (employeesOf.get(cid) || [])) successorsPool.push(e);
+    }
+    // 负责人：本部门 rank 最高的管理头衔者
+    let head = null;
+    for (const m of members) {
+      const mgr = managerOf(m.properties?.title);
+      if (mgr && (!head || mgr.rank > head.rank)) head = { ...m, rank: mgr.rank };
+    }
+    // 候选继任者：池中除 head 外的管理头衔者
+    const successors = [];
+    for (const m of successorsPool) {
+      if (head && m.id === head.id) continue;
+      const mgr = managerOf(m.properties?.title);
+      if (mgr) successors.push({
+        id: m.id, name: m.label || m.name, title: m.properties?.title || '', rank: mgr.rank,
+      });
+    }
+    const hc = headcountOf(d.id);
+    let risk, reason;
+    if (!head) {
+      risk = 'high'; reason = '关键岗位空缺（无明确负责人）';
+    } else if (successors.length === 0) {
+      risk = 'medium'; reason = hc <= 1 ? '单点风险（仅 1 人，无继任梯队）' : '继任断层（无明确副手）';
+    } else {
+      risk = 'low'; reason = `继任梯队健全（${successors.length} 名候选）`;
+    }
+    result.push({
+      dept_id: d.id,
+      dept_name: d.label || d.name,
+      dept_x: d.x, dept_y: d.y,
+      head: head ? { id: head.id, name: head.label || head.name, title: head.properties?.title || '' } : null,
+      headcount: hc,
+      direct_members: members.length,
+      child_depts: childDeptIds.length,
+      successors: successors.slice(0, 5),
+      successor_count: successors.length,
+      risk, reason,
+    });
+  }
+  const order = { high: 0, medium: 1, low: 2 };
+  result.sort((a, b) => (order[a.risk] - order[b.risk]) || (b.headcount - a.headcount));
+  const summary = {
+    total: result.length,
+    high: result.filter((r) => r.risk === 'high').length,
+    medium: result.filter((r) => r.risk === 'medium').length,
+    low: result.filter((r) => r.risk === 'low').length,
+    vacant: result.filter((r) => !r.head).length,
+    total_headcount: result.reduce((s, r) => s + r.headcount, 0),
+  };
+  return { departments: result, summary };
 }

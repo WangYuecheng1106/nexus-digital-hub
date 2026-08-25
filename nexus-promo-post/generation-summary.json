@@ -1,0 +1,19 @@
+{
+  "skill": "solo-graphic-generation",
+  "version": "2026.08.06.21.24.57",
+  "release": "unsupported-size-user-confirmation",
+  "requestedSizeVerbatim": "1:1 方图（社交媒体主图，用户未明确指定，采用推荐尺寸）",
+  "actualImageSize": "square_hd (1024×1024)",
+  "sizeConfirmedByUser": false,
+  "assetCount": 1,
+  "assets": [
+    {
+      "filename": "nexus-promo-elegant.jpg",
+      "title": "Nexus 关系图谱素雅宣传贴",
+      "intendedSize": "1024×1024",
+      "status": "success",
+      "canvasNodeId": "image-001"
+    }
+  ],
+  "notes": "风格方向：素雅、简约、专业；包含产品 demo 示意图（组织树 + 关系图）"
+}

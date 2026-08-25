@@ -876,6 +876,47 @@ input[type="range"]::-moz-range-track {
 .graph-popover-row span { color: var(--text-muted); flex-shrink: 0; }
 .graph-popover-row b { font-weight: 600; text-align: right; word-break: break-all; }
 
+/* ---- 图谱单页应用（GraphApp） ---- */
+.seg button { border: none; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.seg button:hover { color: var(--text); }
+.seg button.seg-active { background: var(--accent-soft); color: var(--accent); }
+.search-pop {
+  position: absolute;
+  top: 40px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  width: 260px;
+  z-index: 20;
+}
+.search-pop .list-row {
+  width: 100%;
+  border: none;
+  padding: 8px 10px;
+  gap: 8px;
+}
+.load-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  font-size: 15px;
+  z-index: 4;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.modal-head h3 { font-size: 16px; margin: 0; }
+.modal-body { font-size: 13px; }
+.modal-foot { margin-top: 16px; }
+
 /* 钉钉式论坛发帖条 */
 .forum-composer {
   border: 1px solid var(--border);

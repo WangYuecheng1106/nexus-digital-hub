@@ -1,0 +1,61 @@
+{
+  "generatedAt": "2026-08-25T03:20:24.016Z",
+  "base": "http://localhost:5173",
+  "consoleErrors": [],
+  "findings": [
+    {
+      "area": "aesthetic",
+      "severity": "ok",
+      "title": "单页图谱应用壳渲染",
+      "detail": "顶栏含「关系图谱」标题",
+      "at": "2026-08-25T03:20:20.693Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "图谱有数据",
+      "detail": "节点 18",
+      "at": "2026-08-25T03:20:21.040Z"
+    },
+    {
+      "area": "compete",
+      "severity": "ok",
+      "title": "演示态标签正确",
+      "detail": "未配钉钉时展示演示态",
+      "at": "2026-08-25T03:20:21.040Z"
+    },
+    {
+      "area": "detail",
+      "severity": "ok",
+      "title": "视图可切换",
+      "detail": "组织树 ⇄ 关系图",
+      "at": "2026-08-25T03:20:23.041Z"
+    },
+    {
+      "area": "function",
+      "severity": "ok",
+      "title": "搜索可命中",
+      "detail": "输入「研发」出现下拉结果",
+      "at": "2026-08-25T03:20:23.837Z"
+    },
+    {
+      "area": "compete",
+      "severity": "ok",
+      "title": "钉钉接入入口在",
+      "detail": "未配置时提供「接入钉钉」引导",
+      "at": "2026-08-25T03:20:24.016Z"
+    }
+  ],
+  "scores": {
+    "aesthetic": 100,
+    "detail": 100,
+    "function": 100,
+    "compete": 100,
+    "system": 100
+  },
+  "counts": {
+    "p0": 0,
+    "p1": 0,
+    "ok": 6
+  }
+}
