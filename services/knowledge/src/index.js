@@ -5,7 +5,7 @@
 import { createService, asyncRoute, requireFields, badRequest, notFound, publishEvent } from '@nexus/shared';
 import {
   db, createNode, createEdge, deleteNode, queryViewport, querySubgraph,
-  queryOverview, searchNodes, filterByType, getStats, NODE_TYPES, EDGE_TYPES,
+  queryOverview, queryOrgData, searchNodes, filterByType, getStats, NODE_TYPES, EDGE_TYPES, importOrg, analyzeSuccession,
 } from './repo.js';
 import { seedGraph } from './layout.js';
 import { organizePeople } from './organize.js';
@@ -49,6 +49,16 @@ const { ctx } = createService({
     // ---- L0 鹰眼：全量坐标，仅 id/type/x/y/size，无 label ----
     app.get('/graph/overview', (req, res) => {
       res.json(queryOverview());
+    });
+
+    // ---- 组织树数据：部门/员工/产品线 带 label+properties ----
+    app.get('/graph/org', (req, res) => {
+      res.json(queryOrgData());
+    });
+
+    // ---- 继任风险分析：每个部门的负责人/继任梯队/风险三态 ----
+    app.get('/graph/succession', (req, res) => {
+      res.json(analyzeSuccession());
     });
 
     // ---- 关键词搜索 ----
@@ -162,6 +172,46 @@ const { ctx } = createService({
         aiNote,
         summary: aiNote ? `${result.summary}\n\n模型说明：${aiNote.slice(0, 400)}` : `${result.summary}（规则整理；在设置填写 API Key 后可用模型优化说明）`,
       });
+    }));
+
+    // ---- 钉钉通讯录 → 图谱 ----
+    app.post('/graph/import-org', asyncRoute(async (req, res) => {
+      const { depts, employees, clear } = req.body || {};
+      const result = importOrg({ depts, employees, clear: clear !== false });
+      publishEvent('knowledge.org_imported', result, 'knowledge');
+      res.status(201).json({ ok: true, ...result });
+    }));
+
+    // ---- 演示数据：小小的组织样本（未配置钉钉时也能看到效果）----
+    app.post('/graph/seed-demo', asyncRoute(async (req, res) => {
+      const result = importOrg({
+        depts: [
+          { id: 1, name: 'Nexus 集团', parent_id: null },
+          { id: 2, name: '研发部', parent_id: 1 },
+          { id: 3, name: '人力资源部', parent_id: 1 },
+          { id: 4, name: '市场部', parent_id: 1 },
+          { id: 5, name: '财务部', parent_id: 1 },
+          { id: 6, name: '前端组', parent_id: 2 },
+          { id: 7, name: '后端组', parent_id: 2 },
+          { id: 8, name: '招聘组', parent_id: 3 },
+        ],
+        employees: [
+          { userid: 'u-admin', name: '演示用户', dept_id: 1, title: '平台管理员', phone: '13800000001', email: 'admin@nexus.local' },
+          { userid: 'u-liu', name: '刘洋', dept_id: 3, title: '招聘经理', phone: '13800000002', email: 'liuyang@nexus.local' },
+          { userid: 'u-wang', name: '王芳', dept_id: 4, title: '品牌总监', phone: '13800000003', email: 'wangfang@nexus.local' },
+          { userid: 'u-zhao', name: '赵磊', dept_id: 5, title: '财务核算', phone: '13800000004', email: 'zhaolei@nexus.local' },
+          { userid: 'u-qian', name: '钱进', dept_id: 6, title: '前端工程师', phone: '13800000005', email: 'qianjin@nexus.local' },
+          { userid: 'u-sun', name: '孙悦', dept_id: 6, title: '前端工程师', phone: '13800000006', email: 'sunyue@nexus.local' },
+          { userid: 'u-zhou', name: '周天', dept_id: 7, title: '后端工程师', phone: '13800000007', email: 'zhoutian@nexus.local' },
+          { userid: 'u-wu', name: '吴迪', dept_id: 7, title: '后端工程师', phone: '13800000008', email: 'wudi@nexus.local' },
+          { userid: 'u-zheng', name: '郑好', dept_id: 8, title: 'HRBP', phone: '13800000009', email: 'zhenghao@nexus.local' },
+          { userid: 'u-chen', name: '陈曦', dept_id: 2, title: '研发负责人', phone: '13800000010', email: 'chenxi@nexus.local' },
+          { userid: 'u-ling', name: '伶歌', dept_id: 4, title: '品牌副总监', phone: '13800000011', email: 'lingge@nexus.local' },
+          { userid: 'u-zhu', name: '朱启明', dept_id: 2, title: '研发副负责人', phone: '13800000012', email: 'zhuqm@nexus.local' },
+        ],
+        clear: true,
+      });
+      res.status(201).json({ ok: true, demo: true, ...result });
     }));
 
     // ---- 调试状态：供 /debug/state 聚合，Playwright 可读取图谱规模 ----

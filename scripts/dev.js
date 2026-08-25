@@ -78,8 +78,8 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 if (!clientOnly) {
-  // auth first (JWT keypair), then gateway, then the rest
-  const ordered = ['auth', 'gateway', ...services.filter((s) => s !== 'auth' && s !== 'gateway').sort()];
+  // gateway first, then the rest (alphabetical)
+  const ordered = ['gateway', ...services.filter((s) => s !== 'gateway').sort()];
   for (const name of ordered) {
     launch(name, process.execPath, [path.join('services', name, 'src', 'index.js')], ROOT);
   }

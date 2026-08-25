@@ -7,6 +7,7 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   plugins: [react()],
   server: {
+    host: '0.0.0.0', // 允许局域网/公网IP访问
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8080',

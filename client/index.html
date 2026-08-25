@@ -9,6 +9,10 @@
 <body>
   <div id="root"></div>
   <script src="/config.js"></script>
+  <!-- 钉钉 H5 微应用 JSAPI（免登）：
+       真正的端内免登在部署后通过钉钉工作台 Webview 打开时生效；
+       本地浏览器演示态不注入 window.dd，api.js 会优雅降级为匿名访问。 -->
+  <script src="https://g.alicdn.com/dingding/dingtalk-jsapi/3.0.28/dingtalk.open.js"></script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

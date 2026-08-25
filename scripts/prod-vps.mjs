@@ -26,7 +26,7 @@ const services = fs
   .filter((d) => d.isDirectory() && fs.existsSync(path.join(SERVICES_DIR, d.name, 'src', 'index.js')))
   .map((d) => d.name);
 
-const ordered = ['auth', 'gateway', ...services.filter((s) => s !== 'auth' && s !== 'gateway').sort()];
+const ordered = ['gateway', ...services.filter((s) => s !== 'gateway').sort()];
 const children = [];
 
 function launch(name) {
