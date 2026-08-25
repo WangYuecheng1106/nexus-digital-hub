@@ -24,3 +24,5 @@ client/public/downloads/*.blockmap
 .edgeone/*
 .tef_dist/*
   
+# local push-only ssh key (never commit)
+.ssh-keys
